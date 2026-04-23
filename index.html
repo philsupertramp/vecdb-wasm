@@ -359,6 +359,20 @@
         .tab-panel { display: none; }
         .tab-panel.active { display: block; }
 
+        .text-chip {
+            display: inline-block;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            margin: 0.15rem;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .opfs-indicator {
             font-size: 0.7rem;
             color: var(--text-dim);
@@ -373,13 +387,16 @@
     <header>
         <h1>🔍 VecDB-WASM</h1>
         <span class="badge" id="wasmStatus">⏳ WASM</span>
-        <span class="badge" id="modelBadge">⏳ Embeddings</span>
-        <span class="badge" id="opfsBadge">⏳ Storage</span>
+        <span class="badge" id="modelStatus">⏳ Embeddings</span>
+        <span class="badge" id="opfsStatus">⏳ Storage</span>
     </header>
 
     <div id="loading">
         <div class="spinner"></div>
         <p style="margin-top:1rem" id="loadingText">Loading WASM module...</p>
+        <div class="progress-bar-container" style="max-width:300px;margin:1rem auto;display:none" id="modelProgress">
+            <div class="fill" id="modelProgressFill" style="width:0%"></div>
+        </div>
     </div>
 
     <div class="container hidden" id="app">
@@ -407,7 +424,7 @@
             <!-- Embedding Model -->
             <div class="card">
                 <h2><span class="icon">🧠</span> Embedding Model</h2>
-                <div class="model-status">
+                <div class="model-status" id="embedModelStatus">
                     <span class="dot" id="modelDot"></span>
                     <span id="modelStatusText">Not loaded</span>
                 </div>
@@ -477,14 +494,52 @@
             <div class="card full-width">
                 <h2><span class="icon">📥</span> Index Data</h2>
                 <div class="tab-bar">
-                    <button class="active" data-tab="textInsert">📝 Text</button>
+                    <button class="active" data-tab="datasetInsert">🤗 HF Datasets</button>
+                    <button data-tab="textInsert">📝 Text</button>
                     <button data-tab="vectorInsert">🔢 Vectors</button>
                     <button data-tab="bulkInsert">📄 Bulk Text</button>
                 </div>
 
-                <div class="tab-panel active" id="tab-textInsert">
+                <div class="tab-panel active" id="tab-datasetInsert">
                     <div class="form-group">
-                        <label>Text to index (embedding model converts to vector)</label>
+                        <label>Choose a demo dataset from the Hugging Face Hub</label>
+                        <select id="datasetSelect">
+                            <option value="" disabled selected>— Select a dataset —</option>
+                            <option value="ag_news" data-dataset="fancyzhx/ag_news" data-config="default" data-split="train" data-col="text" data-label="label" data-labels="World,Sports,Business,Sci/Tech" data-desc="News articles (4 categories: World, Sports, Business, Sci/Tech)">📰 AG News — 120K news articles</option>
+                            <option value="rotten_tomatoes" data-dataset="cornell-movie-review-data/rotten_tomatoes" data-config="default" data-split="train" data-col="text" data-label="label" data-labels="neg,pos" data-desc="Movie reviews (positive/negative sentiment)">🎬 Rotten Tomatoes — 10K movie reviews</option>
+                            <option value="tweet_sentiment" data-dataset="cardiffnlp/tweet_eval" data-config="sentiment" data-split="train" data-col="text" data-label="label" data-labels="negative,neutral,positive" data-desc="Tweets with sentiment labels">🐦 Tweet Sentiment — 45K tweets</option>
+                            <option value="tweet_emotion" data-dataset="cardiffnlp/tweet_eval" data-config="emotion" data-split="train" data-col="text" data-label="label" data-labels="anger,joy,optimism,sadness" data-desc="Tweets with emotion labels">😀 Tweet Emotions — 3.2K tweets</option>
+                        </select>
+                    </div>
+                    <div id="datasetDesc" style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.75rem;display:none"></div>
+                    <div class="form-row">
+                        <div>
+                            <label>Rows to load (max 500)</label>
+                            <input type="number" id="datasetRows" value="200" min="10" max="500">
+                        </div>
+                        <div>
+                            <label>Random offset</label>
+                            <select id="datasetOffset">
+                                <option value="0" selected>From start</option>
+                                <option value="random">Random slice</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="progress-bar-container" id="datasetProgress" style="display:none">
+                        <div class="fill" id="datasetProgressFill" style="width:0%"></div>
+                    </div>
+                    <div id="datasetStatusText" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.35rem;display:none"></div>
+                    <div class="btn-row">
+                        <button id="btnLoadDataset" disabled>Load &amp; Index Dataset</button>
+                    </div>
+                    <div style="font-size:0.7rem;color:var(--text-dim);margin-top:0.75rem">
+                        Data is fetched directly from the <a href="https://huggingface.co/docs/dataset-viewer" target="_blank" style="color:var(--blue)">HF Dataset Viewer API</a> — no server needed. Rows are embedded with the loaded model and indexed into the HNSW index.
+                    </div>
+                </div>
+
+                <div class="tab-panel" id="tab-textInsert">
+                    <div class="form-group">
+                        <label>Text to index (embedding model will convert to vector)</label>
                         <textarea id="textInput" placeholder="The quick brown fox jumps over the lazy dog."></textarea>
                     </div>
                     <div class="btn-row">
@@ -515,7 +570,7 @@
 
                 <div class="tab-panel" id="tab-bulkInsert">
                     <div class="form-group">
-                        <label>Paste multiple lines of text (one per line — each becomes a vector)</label>
+                        <label>Paste multiple lines of text (one per line — each line becomes a vector)</label>
                         <textarea id="bulkTextInput" rows="8" placeholder="Line 1: The quick brown fox&#10;Line 2: Machine learning is fascinating&#10;Line 3: WebAssembly enables high-performance web apps&#10;..."></textarea>
                     </div>
                     <div class="btn-row">
@@ -614,7 +669,7 @@
 
     <script type="module">
         import initWasm, { VectorDB } from './pkg/vecdb_wasm.js';
-        import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
 
         let db = null;
         let embedder = null;
@@ -661,7 +716,8 @@
                     throw err;
                 }
             } catch (err) {
-                setOpfsIndicator('error', `OPFS error: ${err.message}`);
+                setOpfsIndicator('error', `OPFS save error: ${err.message}`);
+                console.error('OPFS save error:', err);
                 return false;
             }
         }
@@ -671,7 +727,8 @@
                 const dir = await getOpfsDir();
                 const fh = await dir.getFileHandle(OPFS_INDEX_FILE, { create: false });
                 const file = await fh.getFile();
-                return await file.text();
+                const text = await file.text();
+                return text;
             } catch (err) {
                 if (err.name === 'NotFoundError') return null;
                 console.error('OPFS load error:', err);
@@ -705,6 +762,7 @@
             el.textContent = text;
         }
 
+        // Debounced auto-save: schedules a save 500ms after last mutation
         function scheduleAutoSave() {
             if (autoSaveTimer) clearTimeout(autoSaveTimer);
             setOpfsIndicator('saving', 'OPFS: saving...');
@@ -724,10 +782,11 @@
         // EMBEDDING MODEL
         // =====================================================================
         function setModelStatus(state, text) {
-            document.getElementById('modelDot').className = `dot ${state}`;
-            document.getElementById('modelStatusText').textContent = text;
-            const badge = document.getElementById('modelBadge');
-            badge.textContent = state === 'ready' ? '✅ Embeddings' : '⏳ Embeddings';
+            const dot = document.getElementById('modelDot');
+            const span = document.getElementById('modelStatusText');
+            dot.className = `dot ${state}`;
+            span.textContent = text;
+            const badge = document.getElementById('modelStatus');
             if (state === 'ready') badge.classList.add('active');
             else badge.classList.remove('active');
         }
@@ -761,22 +820,14 @@
                 setTimeout(() => { progressBar.style.display = 'none'; }, 500);
 
                 setModelStatus('ready', `${modelId.split('/')[1]} (${dim}d, ${dtype})`);
-                log(`Embedding model ready: ${dim} dimensions`, 'ok');
+                log(`Embedding model loaded: ${dim} dimensions`, 'ok');
 
                 document.getElementById('btnUnloadModel').disabled = false;
                 document.getElementById('btnLoadModel').disabled = true;
 
-                // If no index or dimension mismatch, create matching index
+                // If no index exists yet, create one with the right dimensions
                 if (!db || db.dim() !== dim) {
-                    const metric = document.getElementById('cfgMetric').value;
-                    const m = parseInt(document.getElementById('cfgM').value);
-                    const efConst = parseInt(document.getElementById('cfgEfConst').value);
-                    const efSearch = parseInt(document.getElementById('cfgEfSearch').value);
-
-                    if (db) db.free();
-                    db = new VectorDB(dim, metric, m, efConst, efSearch);
-                    log(`Index re-created for model dimensions: ${dim}d`, 'info');
-                    updateStats();
+                    await createIndexForModel(dim);
                 }
 
                 return true;
@@ -786,6 +837,18 @@
                 log(`Model load error: ${err.message}`, 'err');
                 return false;
             }
+        }
+
+        async function createIndexForModel(dim) {
+            const metric = document.getElementById('cfgMetric').value;
+            const m = parseInt(document.getElementById('cfgM').value);
+            const efConst = parseInt(document.getElementById('cfgEfConst').value);
+            const efSearch = parseInt(document.getElementById('cfgEfSearch').value);
+
+            if (db) db.free();
+            db = new VectorDB(dim, metric, m, efConst, efSearch);
+            log(`Index created: dim=${dim}, metric=${metric}`, 'ok');
+            updateStats();
         }
 
         async function embed(texts) {
@@ -858,6 +921,12 @@
                         const meta = JSON.parse(r.metadata);
                         if (meta.text) {
                             contentHtml = `<div class="result-text">${escapeHtml(meta.text)}</div>`;
+                            const parts = [];
+                            if (meta.label) parts.push(`<span style="color:var(--green)">⏺ ${escapeHtml(meta.label)}</span>`);
+                            if (meta.source) parts.push(`<span>📦 ${escapeHtml(meta.source)}</span>`);
+                            const otherKeys = Object.keys(meta).filter(k => !['text','label','source'].includes(k));
+                            for (const k of otherKeys) parts.push(`${k}: ${meta[k]}`);
+                            if (parts.length) contentHtml += `<div class="result-meta">${parts.join(' · ')}</div>`;
                         } else {
                             contentHtml = `<div class="result-meta">${escapeHtml(r.metadata)}</div>`;
                         }
@@ -866,6 +935,7 @@
                     }
                 }
                 contentHtml += `<div class="result-meta">ID: ${r.id}</div>`;
+
                 li.innerHTML = `<span class="rank">#${i + 1}</span>
                     <div class="result-content">${contentHtml}</div>
                     <span class="dist">d=${r.distance.toFixed(4)}</span>`;
@@ -874,206 +944,410 @@
         }
 
         function escapeHtml(str) {
-            const d = document.createElement('div');
-            d.textContent = str;
-            return d.innerHTML;
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
         }
 
         // =====================================================================
         // EVENT HANDLERS
         // =====================================================================
 
-        // Model
+        // --- Model ---
         document.getElementById('btnLoadModel').addEventListener('click', loadEmbeddingModel);
         document.getElementById('btnUnloadModel').addEventListener('click', unloadModel);
 
-        // New Index
+        // --- Create Index ---
         document.getElementById('btnCreate').addEventListener('click', async () => {
             const dim = embeddingDim || 384;
-            const metric = document.getElementById('cfgMetric').value;
-            const m = parseInt(document.getElementById('cfgM').value);
-            const efConst = parseInt(document.getElementById('cfgEfConst').value);
-            const efSearch = parseInt(document.getElementById('cfgEfSearch').value);
-            if (db) db.free();
-            db = new VectorDB(dim, metric, m, efConst, efSearch);
-            log(`New index: dim=${dim}, metric=${metric}`, 'ok');
-            updateStats();
+            await createIndexForModel(dim);
             await opfsClear();
             setOpfsIndicator('saved', 'OPFS: new index');
         });
 
-        // Text Index (single)
+        // --- Text Indexing (single) ---
         document.getElementById('btnIndexText').addEventListener('click', async () => {
             if (!embedder) { log('Load an embedding model first!', 'warn'); return; }
-            if (!db) { log('No index — click "New Index"', 'warn'); return; }
+            if (!db) { log('Create an index first!', 'warn'); return; }
+
             const text = document.getElementById('textInput').value.trim();
             if (!text) { log('Enter text to index', 'warn'); return; }
+
             try {
                 const t0 = performance.now();
                 const output = await embed([text]);
                 const vec = new Float32Array(output.data.slice(0, embeddingDim));
-                const id = db.insert(vec, JSON.stringify({ text }));
-                log(`Indexed text → ID ${id} (${(performance.now() - t0).toFixed(0)}ms)`, 'ok');
+                const metadata = JSON.stringify({ text: text });
+                const id = db.insert(vec, metadata);
+                const ms = (performance.now() - t0).toFixed(0);
+
+                log(`Indexed text → ID ${id} (${ms}ms)`, 'ok');
                 document.getElementById('textInput').value = '';
                 updateStats();
                 scheduleAutoSave();
-            } catch (e) { log(`Index error: ${e.message}`, 'err'); }
+            } catch (e) {
+                log(`Index error: ${e.message}`, 'err');
+            }
         });
 
-        // Bulk Text Index
+        // --- Bulk Text Indexing ---
         document.getElementById('btnBulkIndex').addEventListener('click', async () => {
             if (!embedder) { log('Load an embedding model first!', 'warn'); return; }
-            if (!db) { log('No index — click "New Index"', 'warn'); return; }
+            if (!db) { log('Create an index first!', 'warn'); return; }
+
             const raw = document.getElementById('bulkTextInput').value.trim();
             if (!raw) { log('Enter text to index', 'warn'); return; }
+
             const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            if (!lines.length) { log('No non-empty lines', 'warn'); return; }
+            if (lines.length === 0) { log('No non-empty lines found', 'warn'); return; }
 
             log(`Embedding ${lines.length} lines...`, 'info');
+
             try {
                 const t0 = performance.now();
+
+                // Batch embed in chunks of 32 to avoid memory issues
                 const batchSize = 32;
-                let total = 0;
+                let totalIndexed = 0;
+
                 for (let i = 0; i < lines.length; i += batchSize) {
                     const batch = lines.slice(i, i + batchSize);
                     const output = await embed(batch);
+
                     for (let j = 0; j < batch.length; j++) {
                         const vec = new Float32Array(output.data.slice(j * embeddingDim, (j + 1) * embeddingDim));
-                        db.insert(vec, JSON.stringify({ text: batch[j] }));
-                        total++;
+                        const metadata = JSON.stringify({ text: batch[j] });
+                        db.insert(vec, metadata);
+                        totalIndexed++;
                     }
-                    if (lines.length > batchSize) log(`Progress: ${total}/${lines.length}`, 'info');
+
+                    if (lines.length > batchSize) {
+                        log(`Progress: ${totalIndexed}/${lines.length} lines indexed`, 'info');
+                    }
                 }
+
                 const ms = (performance.now() - t0).toFixed(0);
-                log(`Indexed ${total} lines in ${ms}ms (${(total / (ms / 1000)).toFixed(0)} lines/s)`, 'ok');
+                log(`Indexed ${totalIndexed} lines in ${ms}ms (${(totalIndexed / (ms / 1000)).toFixed(0)} lines/s)`, 'ok');
                 document.getElementById('bulkTextInput').value = '';
                 updateStats();
                 scheduleAutoSave();
-            } catch (e) { log(`Bulk index error: ${e.message}`, 'err'); }
+            } catch (e) {
+                log(`Bulk index error: ${e.message}`, 'err');
+            }
         });
 
-        // Text Search
+        // --- Dataset Select ---
+        document.getElementById('datasetSelect').addEventListener('change', () => {
+            const sel = document.getElementById('datasetSelect');
+            const opt = sel.selectedOptions[0];
+            const desc = document.getElementById('datasetDesc');
+            if (opt && opt.dataset.desc) {
+                desc.textContent = `${opt.dataset.desc} — source: ${opt.dataset.dataset}`;
+                desc.style.display = 'block';
+            } else {
+                desc.style.display = 'none';
+            }
+            document.getElementById('btnLoadDataset').disabled = !opt.value;
+        });
+
+        // --- Load & Index Dataset ---
+        document.getElementById('btnLoadDataset').addEventListener('click', async () => {
+            if (!embedder) { log('Load an embedding model first!', 'warn'); return; }
+            if (!db) { log('Create an index first!', 'warn'); return; }
+
+            const sel = document.getElementById('datasetSelect');
+            const opt = sel.selectedOptions[0];
+            if (!opt || !opt.value) { log('Select a dataset first', 'warn'); return; }
+
+            const dataset = opt.dataset.dataset;
+            const config = opt.dataset.config;
+            const split = opt.dataset.split;
+            const textCol = opt.dataset.col;
+            const labelCol = opt.dataset.label;
+            const labelNames = opt.dataset.labels ? opt.dataset.labels.split(',') : null;
+            const totalRows = Math.min(parseInt(document.getElementById('datasetRows').value) || 200, 500);
+
+            const progressBar = document.getElementById('datasetProgress');
+            const progressFill = document.getElementById('datasetProgressFill');
+            const statusText = document.getElementById('datasetStatusText');
+            progressBar.style.display = 'block';
+            statusText.style.display = 'block';
+            progressFill.style.width = '0%';
+
+            const btn = document.getElementById('btnLoadDataset');
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+
+            try {
+                // Step 1: Determine offset
+                statusText.textContent = `Fetching rows from ${dataset}...`;
+                let offset = 0;
+                if (document.getElementById('datasetOffset').value === 'random') {
+                    // Get total size first
+                    const sizeRes = await fetch(`https://datasets-server.huggingface.co/size?dataset=${encodeURIComponent(dataset)}`);
+                    if (sizeRes.ok) {
+                        const sizeData = await sizeRes.json();
+                        const splitInfo = sizeData.size?.splits?.find(s => s.config === config && s.split === split);
+                        if (splitInfo && splitInfo.num_rows > totalRows) {
+                            offset = Math.floor(Math.random() * (splitInfo.num_rows - totalRows));
+                        }
+                    }
+                }
+
+                // Step 2: Fetch rows (paginate in chunks of 100)
+                const API = 'https://datasets-server.huggingface.co/rows';
+                const allTexts = [];
+                const allLabels = [];
+                const batchSize = 100;
+
+                for (let fetched = 0; fetched < totalRows; fetched += batchSize) {
+                    const length = Math.min(batchSize, totalRows - fetched);
+                    const url = `${API}?dataset=${encodeURIComponent(dataset)}&config=${encodeURIComponent(config)}&split=${encodeURIComponent(split)}&offset=${offset + fetched}&length=${length}`;
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error(`API returned ${res.status}`);
+                    const data = await res.json();
+
+                    for (const item of data.rows) {
+                        const text = item.row[textCol];
+                        const label = item.row[labelCol];
+                        if (text && text.trim().length > 0) {
+                            allTexts.push(text.trim());
+                            allLabels.push(label);
+                        }
+                    }
+
+                    const pct = Math.min(100, ((fetched + length) / totalRows * 30)).toFixed(0);
+                    progressFill.style.width = `${pct}%`;
+                    statusText.textContent = `Fetched ${allTexts.length} rows from Hub...`;
+                }
+
+                log(`Fetched ${allTexts.length} rows from ${dataset}`, 'ok');
+
+                // Step 3: Embed and index in batches
+                statusText.textContent = `Embedding ${allTexts.length} texts...`;
+                const embedBatchSize = 32;
+                let indexed = 0;
+                const t0 = performance.now();
+
+                for (let i = 0; i < allTexts.length; i += embedBatchSize) {
+                    const batch = allTexts.slice(i, i + embedBatchSize);
+                    const batchLabels = allLabels.slice(i, i + embedBatchSize);
+                    const output = await embed(batch);
+
+                    for (let j = 0; j < batch.length; j++) {
+                        const vec = new Float32Array(output.data.slice(j * embeddingDim, (j + 1) * embeddingDim));
+                        const labelStr = labelNames && batchLabels[j] !== undefined ? labelNames[batchLabels[j]] : String(batchLabels[j]);
+                        const metadata = JSON.stringify({ text: batch[j], label: labelStr, source: dataset });
+                        db.insert(vec, metadata);
+                        indexed++;
+                    }
+
+                    const pct = (30 + (indexed / allTexts.length) * 70).toFixed(0);
+                    progressFill.style.width = `${pct}%`;
+                    statusText.textContent = `Embedding & indexing: ${indexed}/${allTexts.length}...`;
+                }
+
+                const elapsed = (performance.now() - t0).toFixed(0);
+                progressFill.style.width = '100%';
+                statusText.textContent = `✅ Done! ${indexed} items indexed in ${elapsed}ms`;
+
+                log(`Indexed ${indexed} items from ${dataset} in ${elapsed}ms (${(indexed / (elapsed / 1000)).toFixed(0)} items/s)`, 'ok');
+                updateStats();
+                scheduleAutoSave();
+
+                // Suggest search queries
+                const suggestions = {
+                    ag_news: ['stock market crash', 'Olympic gold medal', 'new smartphone release', 'climate change summit'],
+                    rotten_tomatoes: ['hilarious comedy', 'boring and predictable', 'stunning visual effects', 'terrible acting'],
+                    tweet_sentiment: ['great news today', 'this is so frustrating', 'looking forward to the weekend'],
+                    tweet_emotion: ['I am so angry', 'feeling happy and grateful', 'this makes me sad']
+                };
+                const qs = suggestions[opt.value];
+                if (qs) {
+                    log(`💡 Try searching: "${qs[Math.floor(Math.random() * qs.length)]}"`, 'info');
+                }
+
+            } catch (e) {
+                log(`Dataset load error: ${e.message}`, 'err');
+                statusText.textContent = `❌ Error: ${e.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Load & Index Dataset';
+                setTimeout(() => { progressBar.style.display = 'none'; }, 2000);
+            }
+        });
+
+        // --- Text Search ---
         document.getElementById('btnTextSearch').addEventListener('click', async () => {
             if (!embedder) { log('Load an embedding model first!', 'warn'); return; }
-            if (!db || db.len() === 0) { log('Index some data first!', 'warn'); return; }
+            if (!db) { log('Create an index first!', 'warn'); return; }
+            if (db.len() === 0) { log('Index some data first!', 'warn'); return; }
+
             const query = document.getElementById('textSearchQuery').value.trim();
             if (!query) { log('Enter a search query', 'warn'); return; }
+
             const k = parseInt(document.getElementById('textSearchK').value);
+
             try {
                 const t0 = performance.now();
                 const output = await embed([query]);
-                const qVec = new Float32Array(output.data.slice(0, embeddingDim));
+                const queryVec = new Float32Array(output.data.slice(0, embeddingDim));
                 const embedMs = (performance.now() - t0).toFixed(0);
+
                 const t1 = performance.now();
-                const results = JSON.parse(db.search(qVec, k));
+                const json = db.search(queryVec, k);
                 const searchMs = (performance.now() - t1).toFixed(2);
-                log(`Text search: embed=${embedMs}ms, HNSW=${searchMs}ms, ${results.length} results`, 'info');
+                const results = JSON.parse(json);
+
+                log(`Text search: embed=${embedMs}ms, search=${searchMs}ms, ${results.length} results`, 'info');
                 renderResults(results);
-            } catch (e) { log(`Search error: ${e.message}`, 'err'); }
+            } catch (e) {
+                log(`Text search error: ${e.message}`, 'err');
+            }
         });
 
+        // Allow Enter key for text search
         document.getElementById('textSearchQuery').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') document.getElementById('btnTextSearch').click();
         });
 
-        // Vector Insert Random
+        // --- Vector Insert Random ---
         document.getElementById('btnInsertRandom').addEventListener('click', () => {
             if (!db) { log('Create an index first!', 'warn'); return; }
             const n = parseInt(document.getElementById('insertCount').value);
             const dim = db.dim();
+
             const t0 = performance.now();
             const flat = new Float32Array(n * dim);
             for (let i = 0; i < flat.length; i++) flat[i] = (Math.random() - 0.5) * 2;
             db.insert_batch(flat, n);
-            log(`Inserted ${n.toLocaleString()} random vectors in ${(performance.now() - t0).toFixed(1)}ms`, 'ok');
+            const elapsed = (performance.now() - t0).toFixed(1);
+
+            log(`Inserted ${n.toLocaleString()} random vectors in ${elapsed}ms`, 'ok');
             updateStats();
             scheduleAutoSave();
         });
 
-        // Vector Insert Manual
+        // --- Vector Insert Manual ---
         document.getElementById('btnInsertManual').addEventListener('click', () => {
             if (!db) { log('Create an index first!', 'warn'); return; }
             const raw = document.getElementById('insertManual').value.trim();
-            if (!raw) { log('Enter a vector', 'warn'); return; }
+            if (!raw) { log('Enter a vector first', 'warn'); return; }
             const meta = document.getElementById('insertMeta').value.trim() || null;
+
             try {
-                const vec = new Float32Array(raw.split(',').map(s => parseFloat(s.trim())));
+                const values = raw.split(',').map(s => parseFloat(s.trim()));
+                const vec = new Float32Array(values);
                 const id = db.insert(vec, meta);
                 log(`Inserted vector ID=${id}`, 'ok');
                 updateStats();
                 scheduleAutoSave();
-            } catch (e) { log(`Error: ${e.message}`, 'err'); }
+            } catch (e) {
+                log(`Error: ${e.message}`, 'err');
+            }
         });
 
-        // Vector Search
+        // --- Vector Search ---
         document.getElementById('btnSearch').addEventListener('click', () => {
-            if (!db || db.len() === 0) { log('Index data first!', 'warn'); return; }
+            if (!db) { log('Create an index first!', 'warn'); return; }
+            if (db.len() === 0) { log('Insert vectors first!', 'warn'); return; }
+
             const k = parseInt(document.getElementById('searchK').value);
             const ef = parseInt(document.getElementById('searchEf').value);
             const raw = document.getElementById('searchQuery').value.trim();
-            let query = raw
-                ? new Float32Array(raw.split(',').map(s => parseFloat(s.trim())))
-                : randomVector(db.dim());
+
+            let query;
+            if (raw) {
+                query = new Float32Array(raw.split(',').map(s => parseFloat(s.trim())));
+            } else {
+                query = randomVector(db.dim());
+            }
+
             try {
                 const t0 = performance.now();
-                const results = JSON.parse(db.search_with_ef(query, k, ef));
-                log(`Vector search: ${results.length} results in ${(performance.now() - t0).toFixed(2)}ms`, 'info');
+                const json = db.search_with_ef(query, k, ef);
+                const elapsed = (performance.now() - t0).toFixed(2);
+                const results = JSON.parse(json);
+
+                log(`Vector search: ${results.length} results in ${elapsed}ms`, 'info');
                 renderResults(results);
-            } catch (e) { log(`Search error: ${e.message}`, 'err'); }
+            } catch (e) {
+                log(`Search error: ${e.message}`, 'err');
+            }
         });
 
-        // Benchmark
+        // --- Benchmark ---
         document.getElementById('btnBenchmark').addEventListener('click', () => {
-            if (!db || db.len() === 0) { log('Index data first!', 'warn'); return; }
+            if (!db) { log('Create an index first!', 'warn'); return; }
+            if (db.len() === 0) { log('Insert vectors first!', 'warn'); return; }
+
             const k = parseInt(document.getElementById('searchK').value);
             const ef = parseInt(document.getElementById('searchEf').value);
             const dim = db.dim();
-            const n = 100;
-            const qs = Array.from({ length: n }, () => randomVector(dim));
+            const numQueries = 100;
+            const queries = [];
+            for (let i = 0; i < numQueries; i++) queries.push(randomVector(dim));
+
             const perfBar = document.getElementById('perfBar');
             const perfFill = document.getElementById('perfFill');
             perfBar.style.display = 'block';
+
             const t0 = performance.now();
-            for (const q of qs) db.search_with_ef(q, k, ef);
+            for (const q of queries) db.search_with_ef(q, k, ef);
             const totalMs = performance.now() - t0;
-            const avgMs = (totalMs / n).toFixed(3);
-            const qps = (n / (totalMs / 1000)).toFixed(0);
-            perfFill.style.width = `${Math.max(0, Math.min(100, (1 - Math.log10(parseFloat(avgMs) + 0.01) / 2) * 100))}%`;
-            log(`Benchmark: avg ${avgMs}ms/query — ${qps} QPS`, 'ok');
+            const avgMs = (totalMs / numQueries).toFixed(3);
+            const qps = (numQueries / (totalMs / 1000)).toFixed(0);
+            const pct = Math.max(0, Math.min(100, (1 - Math.log10(parseFloat(avgMs) + 0.01) / 2) * 100));
+            perfFill.style.width = `${pct}%`;
+
+            log(`Benchmark: ${numQueries} queries — avg ${avgMs}ms/query — ${qps} QPS`, 'ok');
         });
 
-        // Export
+        // --- Export / Import ---
         document.getElementById('btnExport').addEventListener('click', () => {
-            if (!db) { log('No index', 'warn'); return; }
-            const json = db.save();
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-            a.download = 'vecdb-index.json';
-            a.click();
-            log(`Exported (${(json.length / 1024).toFixed(1)} KB)`, 'ok');
+            if (!db) { log('No index to export', 'warn'); return; }
+            try {
+                const json = db.save();
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'vecdb-index.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                log(`Exported index (${(json.length / 1024).toFixed(1)} KB)`, 'ok');
+            } catch (e) {
+                log(`Export error: ${e.message}`, 'err');
+            }
         });
 
-        // Import
         document.getElementById('btnImport').addEventListener('click', () => {
             const input = document.createElement('input');
-            input.type = 'file'; input.accept = '.json';
+            input.type = 'file';
+            input.accept = '.json';
             input.onchange = async (e) => {
-                const file = e.target.files[0]; if (!file) return;
+                const file = e.target.files[0];
+                if (!file) return;
                 try {
                     const json = await file.text();
                     if (db) db.free();
                     db = VectorDB.load(json);
-                    log(`Imported: ${db.len()} vectors, dim=${db.dim()}`, 'ok');
+                    log(`Imported index: ${db.len()} vectors, dim=${db.dim()}`, 'ok');
                     updateStats();
                     scheduleAutoSave();
-                } catch (e) { log(`Import error: ${e.message}`, 'err'); }
+                } catch (e) {
+                    log(`Import error: ${e.message}`, 'err');
+                }
             };
             input.click();
         });
 
-        // Reset
+        // --- Reset ---
         document.getElementById('btnReset').addEventListener('click', async () => {
-            if (db) { db.free(); db = null; }
+            if (db) {
+                db.free();
+                db = null;
+            }
             await opfsClear();
             document.getElementById('results').innerHTML = '';
             document.getElementById('perfBar').style.display = 'none';
@@ -1083,51 +1357,56 @@
         });
 
         // =====================================================================
-        // INIT
+        // INITIALIZATION
         // =====================================================================
         (async () => {
             try {
-                // 1. WASM
+                // Step 1: Load WASM
                 document.getElementById('loadingText').textContent = 'Loading WASM module...';
                 await initWasm();
                 document.getElementById('wasmStatus').textContent = '✅ WASM';
                 document.getElementById('wasmStatus').classList.add('active');
                 log('WASM module loaded', 'ok');
 
-                // 2. OPFS
+                // Step 2: Init OPFS
                 document.getElementById('loadingText').textContent = 'Initializing storage...';
-                if (navigator.storage?.persist) await navigator.storage.persist();
-                document.getElementById('opfsBadge').textContent = '✅ OPFS';
-                document.getElementById('opfsBadge').classList.add('active');
+                if (navigator.storage?.persist) {
+                    await navigator.storage.persist();
+                }
+                document.getElementById('opfsStatus').textContent = '✅ OPFS';
+                document.getElementById('opfsStatus').classList.add('active');
 
-                // 3. Restore from OPFS
+                // Step 3: Try to restore index from OPFS
                 document.getElementById('loadingText').textContent = 'Restoring saved data...';
-                const saved = await opfsLoad();
-                if (saved) {
+                const savedJson = await opfsLoad();
+                if (savedJson) {
                     try {
-                        db = VectorDB.load(saved);
-                        log(`Restored from OPFS: ${db.len()} vectors, dim=${db.dim()}`, 'ok');
-                        setOpfsIndicator('saved', `OPFS: restored (${(saved.length / 1024).toFixed(0)} KB)`);
+                        db = VectorDB.load(savedJson);
+                        log(`Restored index from OPFS: ${db.len()} vectors, dim=${db.dim()}`, 'ok');
+                        setOpfsIndicator('saved', `OPFS: restored (${(savedJson.length / 1024).toFixed(0)} KB)`);
                     } catch (err) {
-                        log(`Could not restore saved data: ${err.message}`, 'warn');
+                        log(`Failed to restore saved index: ${err.message}`, 'warn');
                         db = new VectorDB(384, 'cosine', 16, 128, 40);
+                        log('Created fresh index (384d, cosine)', 'info');
                     }
                 } else {
                     db = new VectorDB(384, 'cosine', 16, 128, 40);
-                    log('No saved index — created fresh (384d, cosine)', 'info');
+                    log('No saved index found — created fresh (384d, cosine)', 'info');
                     setOpfsIndicator('saved', 'OPFS: no saved data');
                 }
 
                 updateStats();
                 await updateStorageStat();
 
-                // Show UI
+                // Show app
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('app').classList.remove('hidden');
 
-                log('VecDB-WASM v2 ready — load an embedding model to start indexing text', 'ok');
+                log('VecDB-WASM v2 ready — load an embedding model to index text', 'ok');
+
             } catch (e) {
                 document.getElementById('loadingText').textContent = `Error: ${e.message}`;
+                document.getElementById('wasmStatus').textContent = '❌ Error';
                 log(`Init error: ${e.message}`, 'err');
                 console.error(e);
             }
