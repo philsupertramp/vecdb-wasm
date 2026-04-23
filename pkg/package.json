@@ -1,0 +1,16 @@
+{
+  "name": "vecdb-wasm",
+  "type": "module",
+  "description": "A WASM vector search database engine with HNSW indexing",
+  "version": "0.1.0",
+  "files": [
+    "vecdb_wasm_bg.wasm",
+    "vecdb_wasm.js",
+    "vecdb_wasm.d.ts"
+  ],
+  "main": "vecdb_wasm.js",
+  "types": "vecdb_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
