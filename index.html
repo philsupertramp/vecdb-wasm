@@ -1,19 +1,699 @@
-<!doctype html>
-<html>
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width" />
-		<title>My static Space</title>
-		<link rel="stylesheet" href="style.css" />
-	</head>
-	<body>
-		<div class="card">
-			<h1>Welcome to your static Space!</h1>
-			<p>You can modify this app directly by editing <i>index.html</i> in the Files and versions tab.</p>
-			<p>
-				Also don't forget to check the
-				<a href="https://huggingface.co/docs/hub/spaces" target="_blank">Spaces documentation</a>.
-			</p>
-		</div>
-	</body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VecDB-WASM — Vector Search Engine</title>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #242834;
+            --border: #2e3340;
+            --text: #e1e4ea;
+            --text-dim: #8b8fa3;
+            --accent: #6c63ff;
+            --accent2: #ff6b6b;
+            --green: #4ade80;
+            --yellow: #fbbf24;
+            --blue: #60a5fa;
+            --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        header {
+            border-bottom: 1px solid var(--border);
+            padding: 1.25rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header .badge {
+            background: var(--surface2);
+            color: var(--text-dim);
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: var(--mono);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .card h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card h2 .icon { font-size: 1.25rem; }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-bottom: 0.35rem;
+            font-weight: 500;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.6rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-family: var(--mono);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent);
+        }
+
+        textarea { resize: vertical; min-height: 80px; }
+
+        .form-row {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .form-row > div { flex: 1; }
+
+        .form-group { margin-bottom: 0.75rem; }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.85; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        button.secondary {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+        }
+
+        button.danger {
+            background: var(--accent2);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card {
+            background: var(--surface2);
+            border-radius: 8px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: var(--mono);
+            color: var(--accent);
+        }
+
+        .stat-card .label {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            margin-top: 0.25rem;
+        }
+
+        .log {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            max-height: 300px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+
+        .log .entry { margin-bottom: 0.25rem; }
+        .log .time { color: var(--text-dim); }
+        .log .ok { color: var(--green); }
+        .log .warn { color: var(--yellow); }
+        .log .err { color: var(--accent2); }
+        .log .info { color: var(--blue); }
+
+        .results-list {
+            list-style: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .results-list li {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 0.35rem;
+            background: var(--surface2);
+            font-family: var(--mono);
+            font-size: 0.8rem;
+        }
+
+        .results-list .rank {
+            color: var(--accent);
+            font-weight: 700;
+            min-width: 2rem;
+        }
+
+        .results-list .dist {
+            color: var(--yellow);
+            margin-left: auto;
+            white-space: nowrap;
+        }
+
+        .results-list .meta {
+            color: var(--text-dim);
+            font-size: 0.75rem;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .perf-bar {
+            height: 6px;
+            background: var(--surface2);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .perf-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--green));
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        #loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-dim);
+        }
+
+        #loading .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .hidden { display: none !important; }
+
+        .architecture-diagram {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            line-height: 1.4;
+            color: var(--text-dim);
+            white-space: pre;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🔍 VecDB-WASM</h1>
+        <span class="badge" id="wasmSize">Loading...</span>
+        <span class="badge" id="wasmStatus">⏳ Initializing</span>
+    </header>
+
+    <div id="loading">
+        <div class="spinner"></div>
+        <p style="margin-top:1rem">Loading WASM module...</p>
+    </div>
+
+    <div class="container hidden" id="app">
+        <!-- Stats row -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="value" id="statVectors">0</div>
+                <div class="label">Vectors</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="statDim">-</div>
+                <div class="label">Dimensions</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="statMemory">0 B</div>
+                <div class="label">Memory</div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Config -->
+            <div class="card">
+                <h2><span class="icon">⚙️</span> Index Configuration</h2>
+                <div class="form-row">
+                    <div>
+                        <label>Dimensions</label>
+                        <input type="number" id="cfgDim" value="128" min="1" max="4096">
+                    </div>
+                    <div>
+                        <label>Metric</label>
+                        <select id="cfgMetric">
+                            <option value="cosine" selected>Cosine</option>
+                            <option value="euclidean">Euclidean (L2)</option>
+                            <option value="dot_product">Dot Product</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div>
+                        <label>M (connections)</label>
+                        <input type="number" id="cfgM" value="16" min="4" max="64">
+                    </div>
+                    <div>
+                        <label>efConstruction</label>
+                        <input type="number" id="cfgEfConst" value="128" min="16" max="512">
+                    </div>
+                    <div>
+                        <label>efSearch</label>
+                        <input type="number" id="cfgEfSearch" value="40" min="1" max="512">
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button id="btnCreate">Create Index</button>
+                    <button class="secondary" id="btnSave">💾 Save</button>
+                    <button class="secondary" id="btnLoad">📂 Load</button>
+                    <button class="danger" id="btnReset">🗑️ Reset</button>
+                </div>
+            </div>
+
+            <!-- Insert -->
+            <div class="card">
+                <h2><span class="icon">📥</span> Insert Vectors</h2>
+                <div class="form-group">
+                    <label>Random vectors to insert</label>
+                    <input type="number" id="insertCount" value="1000" min="1" max="100000">
+                </div>
+                <div class="form-group">
+                    <label>Or paste a vector (comma-separated)</label>
+                    <textarea id="insertManual" placeholder="0.1, 0.2, 0.3, ..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Metadata (optional JSON)</label>
+                    <input type="text" id="insertMeta" placeholder='{"label": "example"}'>
+                </div>
+                <div class="btn-row">
+                    <button id="btnInsertRandom">Insert Random</button>
+                    <button class="secondary" id="btnInsertManual">Insert Manual</button>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <div class="card">
+                <h2><span class="icon">🔎</span> Search</h2>
+                <div class="form-row">
+                    <div>
+                        <label>k (neighbors)</label>
+                        <input type="number" id="searchK" value="10" min="1" max="100">
+                    </div>
+                    <div>
+                        <label>efSearch override</label>
+                        <input type="number" id="searchEf" value="40" min="1" max="512">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Query vector (leave empty for random)</label>
+                    <textarea id="searchQuery" placeholder="0.1, 0.2, 0.3, ..."></textarea>
+                </div>
+                <div class="btn-row">
+                    <button id="btnSearch">Search</button>
+                    <button class="secondary" id="btnBenchmark">⏱️ Benchmark (100 queries)</button>
+                </div>
+                <div class="perf-bar" id="perfBar" style="display:none">
+                    <div class="fill" id="perfFill"></div>
+                </div>
+                <ul class="results-list" id="results"></ul>
+            </div>
+
+            <!-- Log -->
+            <div class="card">
+                <h2><span class="icon">📋</span> Event Log</h2>
+                <div class="log" id="log"></div>
+            </div>
+
+            <!-- Architecture -->
+            <div class="card full-width">
+                <h2><span class="icon">🏗️</span> Architecture</h2>
+                <div class="architecture-diagram">
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                          VecDB-WASM Architecture                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   Browser / Node.js                                                          │
+│   ┌──────────────┐      ┌─────────────────────────┐                         │
+│   │   Your App   │─────▶│  JavaScript API          │                         │
+│   │              │      │  new VectorDB(dim, ...)   │                         │
+│   │  • insert()  │      │  .insert(Float32Array)    │                         │
+│   │  • search()  │      │  .search(query, k)        │                         │
+│   │  • save()    │      │  .save() / .load()        │                         │
+│   └──────────────┘      └───────────┬───────────────┘                        │
+│                                     │ wasm-bindgen                           │
+│   ┌─────────────────────────────────┼──────────────────────────────────────┐ │
+│   │                    WebAssembly  │  (172 KB)                            │ │
+│   │  ┌────────────────────┐  ┌─────┴───────────────┐  ┌───────────────┐  │ │
+│   │  │   Distance Metrics │  │     HNSW Index       │  │  Serializer   │  │ │
+│   │  │  • Cosine          │  │  • Multi-layer graph  │  │  • JSON       │  │ │
+│   │  │  • Euclidean (L2)  │  │  • M=16 connections   │  │  • Save/Load  │  │ │
+│   │  │  • Dot Product     │  │  • Greedy search       │  │  • IndexedDB  │  │ │
+│   │  └────────────────────┘  └───────────────────────┘  └───────────────┘  │ │
+│   └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│   Based on: Malkov & Yashunin (2018) — arxiv:1603.09320                     │
+│   Parameters: M=16, efConstruction=128, efSearch=40 (arxiv:2405.17813)      │
+└──────────────────────────────────────────────────────────────────────────────┘</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import init, { VectorDB } from './pkg/vecdb_wasm.js';
+
+        let db = null;
+
+        // === Logging ===
+        const logEl = document.getElementById('log');
+        function log(msg, level = 'info') {
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            const entry = document.createElement('div');
+            entry.className = 'entry';
+            entry.innerHTML = `<span class="time">[${time}]</span> <span class="${level}">${msg}</span>`;
+            logEl.prepend(entry);
+        }
+
+        // === Stats ===
+        function updateStats() {
+            if (!db) {
+                document.getElementById('statVectors').textContent = '0';
+                document.getElementById('statDim').textContent = '-';
+                document.getElementById('statMemory').textContent = '0 B';
+                return;
+            }
+            const stats = JSON.parse(db.stats());
+            document.getElementById('statVectors').textContent = stats.num_vectors.toLocaleString();
+            document.getElementById('statDim').textContent = stats.dimensions;
+            const bytes = stats.memory_bytes;
+            const fmt = bytes < 1024 ? `${bytes} B`
+                : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB`
+                : `${(bytes / 1048576).toFixed(1)} MB`;
+            document.getElementById('statMemory').textContent = fmt;
+        }
+
+        // === Random vector generator ===
+        function randomVector(dim) {
+            const v = new Float32Array(dim);
+            for (let i = 0; i < dim; i++) {
+                v[i] = (Math.random() - 0.5) * 2;
+            }
+            return v;
+        }
+
+        // === Create Index ===
+        document.getElementById('btnCreate').addEventListener('click', () => {
+            const dim = parseInt(document.getElementById('cfgDim').value);
+            const metric = document.getElementById('cfgMetric').value;
+            const m = parseInt(document.getElementById('cfgM').value);
+            const efConst = parseInt(document.getElementById('cfgEfConst').value);
+            const efSearch = parseInt(document.getElementById('cfgEfSearch').value);
+
+            try {
+                if (db) db.free();
+                db = new VectorDB(dim, metric, m, efConst, efSearch);
+                log(`Index created: dim=${dim}, metric=${metric}, M=${m}, efC=${efConst}, efS=${efSearch}`, 'ok');
+                updateStats();
+            } catch (e) {
+                log(`Error: ${e.message}`, 'err');
+            }
+        });
+
+        // === Insert Random ===
+        document.getElementById('btnInsertRandom').addEventListener('click', () => {
+            if (!db) { log('Create an index first!', 'warn'); return; }
+            const n = parseInt(document.getElementById('insertCount').value);
+            const dim = db.dim();
+
+            const t0 = performance.now();
+            const flat = new Float32Array(n * dim);
+            for (let i = 0; i < flat.length; i++) {
+                flat[i] = (Math.random() - 0.5) * 2;
+            }
+            db.insert_batch(flat, n);
+            const elapsed = (performance.now() - t0).toFixed(1);
+
+            log(`Inserted ${n.toLocaleString()} random vectors in ${elapsed}ms (${(n / (elapsed / 1000)).toFixed(0)} vec/s)`, 'ok');
+            updateStats();
+        });
+
+        // === Insert Manual ===
+        document.getElementById('btnInsertManual').addEventListener('click', () => {
+            if (!db) { log('Create an index first!', 'warn'); return; }
+            const raw = document.getElementById('insertManual').value.trim();
+            if (!raw) { log('Enter a vector first', 'warn'); return; }
+            const meta = document.getElementById('insertMeta').value.trim() || null;
+
+            try {
+                const values = raw.split(',').map(s => parseFloat(s.trim()));
+                const vec = new Float32Array(values);
+                const id = db.insert(vec, meta);
+                log(`Inserted vector ID=${id}${meta ? ' with metadata' : ''}`, 'ok');
+                updateStats();
+            } catch (e) {
+                log(`Error: ${e.message}`, 'err');
+            }
+        });
+
+        // === Search ===
+        document.getElementById('btnSearch').addEventListener('click', () => {
+            if (!db) { log('Create an index first!', 'warn'); return; }
+            if (db.len() === 0) { log('Insert vectors first!', 'warn'); return; }
+
+            const k = parseInt(document.getElementById('searchK').value);
+            const ef = parseInt(document.getElementById('searchEf').value);
+            const raw = document.getElementById('searchQuery').value.trim();
+
+            let query;
+            if (raw) {
+                const values = raw.split(',').map(s => parseFloat(s.trim()));
+                query = new Float32Array(values);
+            } else {
+                query = randomVector(db.dim());
+            }
+
+            try {
+                const t0 = performance.now();
+                const json = db.search_with_ef(query, k, ef);
+                const elapsed = (performance.now() - t0).toFixed(2);
+                const results = JSON.parse(json);
+
+                log(`Search returned ${results.length} results in ${elapsed}ms`, 'info');
+
+                const list = document.getElementById('results');
+                list.innerHTML = '';
+                results.forEach((r, i) => {
+                    const li = document.createElement('li');
+                    let metaHtml = '';
+                    if (r.metadata) {
+                        metaHtml = `<span class="meta">${r.metadata}</span>`;
+                    }
+                    li.innerHTML = `<span class="rank">#${i + 1}</span>
+                        <span>ID: ${r.id}</span>
+                        ${metaHtml}
+                        <span class="dist">d = ${r.distance.toFixed(6)}</span>`;
+                    list.appendChild(li);
+                });
+            } catch (e) {
+                log(`Search error: ${e.message}`, 'err');
+            }
+        });
+
+        // === Benchmark ===
+        document.getElementById('btnBenchmark').addEventListener('click', () => {
+            if (!db) { log('Create an index first!', 'warn'); return; }
+            if (db.len() === 0) { log('Insert vectors first!', 'warn'); return; }
+
+            const k = parseInt(document.getElementById('searchK').value);
+            const ef = parseInt(document.getElementById('searchEf').value);
+            const dim = db.dim();
+            const numQueries = 100;
+
+            const queries = [];
+            for (let i = 0; i < numQueries; i++) {
+                queries.push(randomVector(dim));
+            }
+
+            const perfBar = document.getElementById('perfBar');
+            const perfFill = document.getElementById('perfFill');
+            perfBar.style.display = 'block';
+
+            const t0 = performance.now();
+            for (const q of queries) {
+                db.search_with_ef(q, k, ef);
+            }
+            const totalMs = performance.now() - t0;
+            const avgMs = (totalMs / numQueries).toFixed(3);
+            const qps = (numQueries / (totalMs / 1000)).toFixed(0);
+
+            // Animate perf bar (scale: 0.01ms = 100%, 10ms = 0%)
+            const pct = Math.max(0, Math.min(100, (1 - Math.log10(parseFloat(avgMs) + 0.01) / 2) * 100));
+            perfFill.style.width = `${pct}%`;
+
+            log(`Benchmark: ${numQueries} queries in ${totalMs.toFixed(1)}ms — avg ${avgMs}ms/query — ${qps} QPS`, 'ok');
+        });
+
+        // === Save / Load ===
+        document.getElementById('btnSave').addEventListener('click', () => {
+            if (!db) { log('No index to save', 'warn'); return; }
+            try {
+                const json = db.save();
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'vecdb-index.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                log(`Saved index (${(json.length / 1024).toFixed(1)} KB)`, 'ok');
+            } catch (e) {
+                log(`Save error: ${e.message}`, 'err');
+            }
+        });
+
+        document.getElementById('btnLoad').addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                try {
+                    const json = await file.text();
+                    if (db) db.free();
+                    db = VectorDB.load(json);
+                    log(`Loaded index: ${db.len()} vectors, dim=${db.dim()}`, 'ok');
+                    document.getElementById('cfgDim').value = db.dim();
+                    updateStats();
+                } catch (e) {
+                    log(`Load error: ${e.message}`, 'err');
+                }
+            };
+            input.click();
+        });
+
+        // === Reset ===
+        document.getElementById('btnReset').addEventListener('click', () => {
+            if (db) {
+                db.free();
+                db = null;
+            }
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('perfBar').style.display = 'none';
+            updateStats();
+            log('Index reset', 'warn');
+        });
+
+        // === Init ===
+        (async () => {
+            try {
+                await init();
+
+                document.getElementById('wasmStatus').textContent = '✅ WASM Ready';
+                document.getElementById('wasmSize').textContent = '172 KB WASM';
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+
+                // Auto-create a default index
+                const dim = 128;
+                db = new VectorDB(dim, 'cosine', 16, 128, 40);
+                log('VecDB-WASM initialized', 'ok');
+                log(`Default index created: dim=${dim}, metric=cosine`, 'info');
+                updateStats();
+            } catch (e) {
+                document.getElementById('wasmStatus').textContent = '❌ Failed';
+                log(`Init error: ${e.message}`, 'err');
+                console.error(e);
+            }
+        })();
+    </script>
+</body>
 </html>
