@@ -6,92 +6,86 @@ colorTo: purple
 sdk: static
 pinned: false
 license: mit
-short_description: WASM vector search database with HNSW indexing
+short_description: WASM vector DB with HNSW, embeddings, OPFS
 ---
 
 # 🔍 VecDB-WASM — Vector Search Database Engine
 
-A **WebAssembly vector search database** built from scratch in Rust. Runs entirely in the browser with zero server dependencies.
+A **WebAssembly vector search database** with **built-in embedding models** and **persistent storage**. Runs 100% in the browser — zero server dependencies.
+
+## ✨ What's New in v2
+
+- **🧠 Embedding Integration** — Load transformer models directly in the browser via [transformers.js](https://huggingface.co/docs/transformers.js). Index and search with raw text.
+- **💾 OPFS Persistence** — Your data survives page refreshes. Uses the [Origin Private File System](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system) with atomic writes.
+- **📝 Text-First Workflow** — Type text → auto-embed → index. Search with natural language queries.
 
 ## Features
 
-- **HNSW Index** — Hierarchical Navigable Small World graph for approximate nearest neighbor search (based on [Malkov & Yashunin, 2018](https://arxiv.org/abs/1603.09320))
-- **3 Distance Metrics** — Cosine, Euclidean (L2), Dot Product
-- **172 KB** WASM binary — fast to load, no CDN needed
-- **Persistence** — Save/load index to JSON (compatible with IndexedDB, localStorage)
-- **Configurable** — Tune M, efConstruction, efSearch parameters
-- **Metadata Support** — Attach JSON metadata to each vector
-- **Batch Insert** — Efficient bulk loading via flat Float32Array
+| Feature | Details |
+|---------|---------|
+| **HNSW Index** | Rust → WASM (172 KB), based on [Malkov & Yashunin 2018](https://arxiv.org/abs/1603.09320) |
+| **Embedding Models** | all-MiniLM-L6-v2, bge-small, gte-small via transformers.js |
+| **Distance Metrics** | Cosine, Euclidean (L2), Dot Product |
+| **Persistence** | OPFS auto-save after every mutation, auto-restore on load |
+| **Quantization** | q8 (22MB) or fp32 embedding models |
+| **Batch Operations** | Bulk text indexing (32 lines/batch), batch vector insert |
+| **Export/Import** | Download/upload index as JSON file |
 
-## Performance (Node.js, 10K vectors × 128 dims)
+## How It Works
+
+```
+Raw Text → Embedding Model (transformers.js, in-browser ONNX)
+         → Float32Array (384-dim vector)
+         → HNSW Index (Rust/WASM, sub-ms search)
+         → OPFS (auto-persisted, survives refresh)
+```
+
+## Quick Start
+
+1. **Load Model** — Click "Load Model" to download an embedding model (~22MB, cached after first load)
+2. **Index Text** — Type or paste text in the "Index Data" panel
+3. **Search** — Type a natural language query in "Text Search"
+4. **Refresh** — Your data is still there (OPFS persistence)
+
+## Performance
 
 | Metric | Value |
 |--------|-------|
-| Search Latency | **0.54 ms/query** |
-| Throughput | **1,852 QPS** |
+| Search Latency | **< 1 ms** (HNSW) |
+| Embedding Latency | **~50 ms** per sentence (q8, WASM) |
 | Recall@10 | **100%** (500 vectors) |
-| Memory | **6.5 MB** |
 | WASM Binary | **172 KB** |
-
-## JavaScript API
-
-```javascript
-import init, { VectorDB } from './pkg/vecdb_wasm.js';
-await init();
-
-// Create index
-const db = new VectorDB(128, 'cosine', 16, 128, 40);
-
-// Insert vectors
-db.insert(new Float32Array([0.1, 0.2, ...]), '{"label": "doc1"}');
-
-// Batch insert (flat array)
-const vectors = new Float32Array(1000 * 128);
-db.insert_batch(vectors, 1000);
-
-// Search
-const results = JSON.parse(db.search(queryVector, 10));
-// → [{"id": 42, "distance": 0.05, "metadata": "..."}, ...]
-
-// Save / Load
-const snapshot = db.save();
-const restored = VectorDB.load(snapshot);
-```
-
-## HNSW Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `M` | 16 | Max bidirectional connections per node |
-| `efConstruction` | 128 | Search width during index building |
-| `efSearch` | 40 | Search width during queries (tune for recall/speed) |
-
-Values follow industry consensus from [arxiv:2405.17813](https://arxiv.org/abs/2405.17813).
+| Embedding Model | **22 MB** (q8 all-MiniLM-L6-v2) |
 
 ## Architecture
 
 ```
-Browser/Node.js → JavaScript API (wasm-bindgen) → WASM (172 KB)
-                                                    ├── Distance Metrics (Cosine, L2, IP)
-                                                    ├── HNSW Index (multi-layer graph)
-                                                    └── Serializer (JSON save/load)
+┌─────────────────────────────────────────────────────────────────┐
+│  Raw Text ──→ transformers.js (ONNX) ──→ HNSW Index (Rust/WASM)│
+│                                              │                  │
+│              OPFS (Origin Private File System)                  │
+│              • Auto-save after mutations                        │
+│              • Auto-restore on page load                        │
+│              • Atomic writes (crash-safe)                       │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Build from Source
+## Technology Stack
 
-```bash
-# Prerequisites: Rust, wasm-pack
-curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+- **Rust** — HNSW algorithm, distance metrics, serialization
+- **wasm-bindgen** — Rust ↔ JavaScript bridge
+- **transformers.js** — In-browser ONNX inference for embeddings
+- **OPFS** — Browser-native persistent file storage
+- **Zero frameworks** — Vanilla JS, no build step needed
 
-# Build for browser
-wasm-pack build --target web --release
+## Browser Compatibility
 
-# Build for Node.js
-wasm-pack build --target nodejs --release
-
-# Run tests
-cargo test
-```
+| Browser | WASM | OPFS | Embeddings |
+|---------|------|------|------------|
+| Chrome 102+ | ✅ | ✅ | ✅ |
+| Firefox 111+ | ✅ | ✅ | ✅ |
+| Safari 15.2+ | ✅ | ✅ | ✅ |
+| Edge | ✅ | ✅ | ✅ |
 
 ## License
 
