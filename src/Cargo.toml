@@ -1,0 +1,30 @@
+[package]
+name = "vecdb-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "A WASM vector search database engine with HNSW indexing"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde-wasm-bindgen = "0.6"
+console_error_panic_hook = "0.1"
+rand = { version = "0.8", features = ["small_rng"] }
+getrandom = { version = "0.2", features = ["js"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
