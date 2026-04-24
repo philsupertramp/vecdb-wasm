@@ -81,8 +81,8 @@ export class AgentMemory {
      * @param {string} [options.logLevel='warn'] - Log level: silent|error|warn|info|debug
      */
     constructor(options = {}) {
-        this.#workerPath = options.workerPath || './sdk/embed-worker.js';
-        this.#wasmPkgPath = options.wasmPkgPath || './pkg/vecdb_wasm.js';
+        this.#workerPath = options.workerPath || '../sdk/embed-worker.js';
+        this.#wasmPkgPath = options.wasmPkgPath || '../pkg/vecdb_wasm.js';
         this.#registryUrl = options.registryUrl;
         this.#logLevel = LOG_LEVELS[options.logLevel || 'warn'] ?? LOG_LEVELS.warn;
         this.#cache = new VromCache(this.#registryUrl);
