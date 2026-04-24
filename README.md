@@ -11,137 +11,110 @@ short_description: WASM vector DB + vROM Hub for plug-and-play browser RAG
 
 # 🔍 VecDB-WASM — Vector Search Engine + vROM Hub
 
-A **WebAssembly vector search database** with **built-in embedding models**, **persistent storage**, and a **vROM Hub** for distributing pre-computed HNSW indexes. Runs 100% in the browser — zero server dependencies.
+A **WebAssembly vector search database** with **background embedding**, **persistent storage**, and a **vROM Hub** for distributing pre-computed HNSW indexes. Runs 100% in the browser — zero server dependencies.
 
-## ✨ What's New in v3
+## ✨ What's New in v3.1
 
-- **🧩 vROM Hub** — Browse and load pre-computed HNSW indexes from Hugging Face Hub. One-click load for instant RAG — no embedding computation needed.
-- **🔨 vROM Builder** — Create custom vROM packages directly in the browser. Paste text, fetch HF docs, chunk, embed, and package an HNSW index.
-- **🔗 Context Expansion** — Linked-list chunk traversal (`prev_chunk_id` / `next_chunk_id`) for expanding search results with surrounding context.
-- **🐍 Python CLI** — Build vROMs from large corpora server-side with `tools/vrom_builder.py`.
-
-## What is a vROM?
-
-A **vROM (Vector Read-Only Memory)** is a pre-computed, serialized HNSW index package that can be loaded directly into VecDB-WASM for instant vector search — no embedding computation required on the client side.
-
-Think of it as a **plug-and-play RAG cartridge**: download, load, and search in milliseconds.
-
-### Official vROMs
-
-| vROM | Vectors | Size | Source |
-|------|---------|------|--------|
-| [vrom-hf-docs](https://huggingface.co/datasets/philipp-zettl/vrom-hf-docs) | 1,356 | 12.6 MB | HF Transformers + Hub docs |
-| [vrom-ml-training](https://huggingface.co/datasets/philipp-zettl/vrom-ml-training) | 629 | 5.8 MB | TRL + PEFT + Datasets docs |
-
-## Features
-
-| Feature | Details |
-|---------|---------|
-| **HNSW Index** | Rust → WASM (172 KB), based on [Malkov & Yashunin 2018](https://arxiv.org/abs/1603.09320) |
-| **Embedding Models** | all-MiniLM-L6-v2, bge-small, gte-small via transformers.js |
-| **vROM Hub** | Browse and load pre-computed indexes from HF Hub |
-| **vROM Builder** | Create custom vROMs in-browser or via Python CLI |
-| **Distance Metrics** | Cosine, Euclidean (L2), Dot Product |
-| **Persistence** | OPFS auto-save after every mutation, auto-restore on load |
-| **Context Expansion** | Linked-list chunk traversal for surrounding context |
-| **Export/Import** | Download/upload index as JSON file |
+- **🧵 Background Embedding Worker** — ONNX inference runs in a Web Worker, keeping the UI completely responsive during embedding. Zero main-thread blocking.
+- **📡 CDN Registry** — vROMs served from a [centralized registry](https://huggingface.co/datasets/philipp-zettl/vrom-registry) via HF Hub CDN (`resolve/main/` URLs, Cloudflare-cached, ETag support).
+- **🐍 vROM CLI** — Command-line tool for managing vROMs locally: `vrom list`, `vrom pull`, `vrom search`.
 
 ## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  VecDB-WASM v3 + vROM Architecture                              │
+│  VecDB-WASM v3.1 Architecture                                   │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  Raw Text ──→ transformers.js (ONNX) ──→ HNSW Index (Rust/WASM) │
-│                                              │                   │
-│  💾 OPFS (auto-save/restore, crash-safe)     │                   │
-│                                              │                   │
-│  🧩 vROM Hub ──→ fetch from HF Hub ─────────┘                   │
-│     • Pre-computed HNSW indexes                                  │
-│     • One-click load → instant RAG                               │
-│     • Context expansion via linked-list chunks                   │
+│  Main Thread                    Web Worker Thread                │
+│  ┌──────────────┐              ┌──────────────────┐              │
+│  │ UI + HNSW    │  postMessage │ transformers.js   │              │
+│  │ (Rust/WASM)  │◄────────────►│ ONNX embedding    │              │
+│  │ VectorDB     │  Float32Array│ all-MiniLM-L6-v2  │              │
+│  │ search <1ms  │  (zero-copy) │ q8 quantized      │              │
+│  └──────────────┘              └──────────────────┘              │
+│         │                                                        │
+│  ┌──────┴───────────────────────────────────────────────────┐    │
+│  │  💾 OPFS — auto-save/restore · crash-safe                │    │
+│  └──────────────────────────────────────────────────────────┘    │
 │                                                                  │
-│  🔨 vROM Builder                                                 │
-│     • Browser: paste/fetch → chunk → embed → build → download    │
-│     • Python: tools/vrom_builder.py (for large corpora)          │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │  🧩 vROM Hub — CDN-distributed pre-computed indexes      │    │
+│  │  registry.json → fetch index.json → VectorDB.load()      │    │
+│  │  Context expansion via prev/next chunk linked-list        │    │
+│  └──────────────────────────────────────────────────────────┘    │
 │                                                                  │
-│  100% client-side · Zero server dependencies · Works offline     │
+│  100% client-side · Works offline · Non-blocking UI              │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-## Quick Start
+## Features
 
-### Using a vROM (easiest)
+| Feature | Details |
+|---------|---------|
+| **HNSW Index** | Rust → WASM (172 KB), [Malkov & Yashunin 2018](https://arxiv.org/abs/1603.09320) |
+| **Background Embedding** | Web Worker thread — UI never blocks during inference |
+| **vROM Hub** | Browse and load pre-computed indexes from CDN |
+| **vROM Builder** | Create custom vROMs in-browser or via Python CLI |
+| **vROM CLI** | `vrom list` / `pull` / `search` — local management |
+| **Distance Metrics** | Cosine, Euclidean (L2), Dot Product |
+| **Persistence** | OPFS auto-save/restore, crash-safe |
+| **Context Expansion** | Linked-list chunk traversal |
 
-1. Click **🧩 vROM Hub** tab
-2. Click **Load vROM** on any official vROM
-3. Wait for download (~5-13 MB)
-4. Load the embedding model when prompted
-5. Search with natural language queries
+## Official vROMs
 
-### Building from scratch
+Served from the [vROM Registry](https://huggingface.co/datasets/philipp-zettl/vrom-registry):
 
-1. Click **🔍 Engine** tab → **Load Model**
-2. Index text via **📝 Text**, **📄 Bulk Text**, or **🤗 HF Datasets**
-3. Search with natural language queries
+| vROM | Vectors | Size | Source |
+|------|---------|------|--------|
+| `hf-transformers-docs` | 1,356 | 12.6 MB | HF Transformers + Hub docs |
+| `hf-ml-training` | 629 | 5.8 MB | TRL + PEFT + Datasets docs |
 
-### Building a custom vROM
-
-1. Click **🔨 vROM Builder** tab
-2. Add sources (paste text or fetch HF docs pages)
-3. Configure (ID, version, chunk size)
-4. Click **Build** → Download or Load in Engine
-
-### Python CLI (for large corpora)
+## vROM CLI
 
 ```bash
-pip install sentence-transformers huggingface_hub
-python tools/vrom_builder.py
+# Install (just needs requests; sentence-transformers for search)
+pip install requests sentence-transformers
+
+# List available vROMs
+python tools/vrom_cli.py list
+
+# Download a vROM to ~/.vrom/
+python tools/vrom_cli.py pull hf-transformers-docs
+
+# Search locally
+python tools/vrom_cli.py search hf-ml-training "how to train with DPO"
+
+# Show details
+python tools/vrom_cli.py info hf-transformers-docs
 ```
 
-## vROM Package Format
+## File Structure
 
-A vROM consists of 3 JSON files:
-
-| File | Description |
-|------|-------------|
-| `index.json` | HNSW index (loadable by `VectorDB.load()`) |
-| `chunks.json` | Chunk metadata array |
-| `manifest.json` | Package specification |
-
-Each vector's metadata contains:
-```json
-{
-  "chunk_id": 42,
-  "text": "The actual chunk text...",
-  "source_file": "transformers/pipeline_tutorial.md",
-  "section_heading": "Pipeline API",
-  "prev_chunk_id": 41,
-  "next_chunk_id": 43,
-  "url": "https://huggingface.co/docs/transformers/pipeline_tutorial",
-  "doc_title": "Pipeline"
-}
+```
+index.html              # Main application (CSS + HTML)
+embed-worker.js         # Web Worker — transformers.js ONNX inference
+pkg/                    # VecDB-WASM compiled binaries
+  vecdb_wasm.js         # JS bindings
+  vecdb_wasm_bg.wasm    # WASM binary (172 KB)
+src/rust/               # Rust source code
+  hnsw.rs               # HNSW algorithm
+  distance.rs           # Distance metrics
+  lib.rs                # wasm-bindgen API
+tools/
+  vrom_builder.py       # Python vROM builder (for large corpora)
+  vrom_cli.py           # CLI for local vROM management
 ```
 
 ## Performance
 
 | Metric | Value |
 |--------|-------|
-| Search Latency | **< 1 ms** (HNSW) |
-| Embedding Latency | **~50 ms** per sentence (q8, WASM) |
+| HNSW Search | **< 1 ms** |
+| Embedding (worker) | **~50 ms** per sentence |
+| UI blocking during embed | **0 ms** (worker thread) |
 | WASM Binary | **172 KB** |
-| Embedding Model | **22 MB** (q8 all-MiniLM-L6-v2) |
-| vROM Load Time | **~2-5s** (depends on size + network) |
-
-## Technology Stack
-
-- **Rust** — HNSW algorithm, distance metrics, serialization
-- **wasm-bindgen** — Rust ↔ JavaScript bridge
-- **transformers.js** — In-browser ONNX inference for embeddings
-- **OPFS** — Browser-native persistent file storage
-- **Hugging Face Hub** — vROM distribution via dataset repos
-- **Zero frameworks** — Vanilla JS, no build step
+| Embedding Model | **22 MB** (q8) |
 
 ## License
 
