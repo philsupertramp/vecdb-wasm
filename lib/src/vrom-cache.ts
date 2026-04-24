@@ -12,11 +12,35 @@ const REGISTRY_TTL_MS = 3_600_000; // 1 hour
 const DEFAULT_REGISTRY_URL =
     'https://huggingface.co/datasets/philipp-zettl/vrom-registry/resolve/main/registry.json';
 
+/**
+ * OPFS-backed cache and registry manager for vROM packages.
+ *
+ * Handles hub:// URI resolution, CDN downloads with progress, and persistent
+ * local caching via the Origin Private File System (OPFS).
+ *
+ * Used internally by {@link AgentMemory}, but exported for advanced use cases
+ * that need direct cache control.
+ *
+ * Storage layout in OPFS:
+ * ```
+ * vecdb-vroms/
+ *   registry.json              ← Cached registry (1-hour TTL)
+ *   {vrom-id}/
+ *     manifest.json
+ *     index.json               ← Serialized HNSW graph
+ * ```
+ */
 export class VromCache {
     #registryUrl: string;
     #registry: VromRegistry | null = null;
     #rootDir: FileSystemDirectoryHandle | null = null;
 
+    /**
+     * Create a VromCache instance.
+     *
+     * @param registryUrl - URL to the vROM registry JSON.
+     *   Defaults to the official registry on HF Hub.
+     */
     constructor(registryUrl?: string) {
         this.#registryUrl = registryUrl || DEFAULT_REGISTRY_URL;
     }
@@ -75,6 +99,15 @@ export class VromCache {
 
     // ─── Registry ─────────────────────────────────────────────────────
 
+    /**
+     * Fetch the vROM registry.
+     *
+     * Uses a three-tier lookup: in-memory cache → OPFS cache (1-hour TTL) → CDN fetch.
+     * The registry is written to OPFS on a best-effort basis after fetching.
+     *
+     * @returns The full registry object containing all available vROM entries
+     * @throws If the CDN fetch fails and no cached copy exists
+     */
     async getRegistry(): Promise<VromRegistry> {
         if (this.#registry) return this.#registry;
 
@@ -103,12 +136,26 @@ export class VromCache {
         return this.#registry!;
     }
 
+    /**
+     * Resolve a vROM identifier to its registry entry.
+     *
+     * Supports bare IDs (`'hf-transformers-docs'`) and `hub://` URIs
+     * (`'hub://hf-transformers-docs'`).
+     *
+     * @param vromIdOrUri - vROM identifier or hub:// URI
+     * @returns The registry entry, or `null` if not found
+     */
     async resolve(vromIdOrUri: string): Promise<VromRegistryEntry | null> {
         const id = vromIdOrUri.replace(/^hub:\/\//, '');
         const registry = await this.getRegistry();
         return registry.vroms.find(v => v.id === id) ?? null;
     }
 
+    /**
+     * List all available vROMs from the registry.
+     *
+     * @returns Array of all vROM entries
+     */
     async list(): Promise<VromRegistryEntry[]> {
         const registry = await this.getRegistry();
         return registry.vroms;
@@ -116,6 +163,12 @@ export class VromCache {
 
     // ─── Cache Ops ────────────────────────────────────────────────────
 
+    /**
+     * Check whether a vROM is cached locally in OPFS.
+     *
+     * @param vromId - vROM identifier
+     * @returns `true` if the index file exists in OPFS
+     */
     async isCached(vromId: string): Promise<boolean> {
         try {
             const dir = await this.#getVromDir(vromId);
@@ -125,6 +178,12 @@ export class VromCache {
         }
     }
 
+    /**
+     * Read the cached manifest for a vROM.
+     *
+     * @param vromId - vROM identifier
+     * @returns Parsed manifest object, or `null` if not cached
+     */
     async getCachedManifest(vromId: string): Promise<VromManifest | null> {
         try {
             const dir = await this.#getVromDir(vromId);
@@ -135,11 +194,32 @@ export class VromCache {
         }
     }
 
+    /**
+     * Load a vROM's raw index JSON from OPFS cache.
+     *
+     * The returned string can be passed directly to `VectorDB.load()`.
+     *
+     * @param vromId - vROM identifier
+     * @returns Raw JSON string, or `null` if not cached
+     */
     async loadIndex(vromId: string): Promise<string | null> {
         const dir = await this.#getVromDir(vromId);
         return this.#readFile(dir, 'index.json');
     }
 
+    /**
+     * Download a vROM from CDN and write it to OPFS.
+     *
+     * Downloads the manifest first (small), then streams the index file (large)
+     * with progress reporting via the `onProgress` callback.
+     *
+     * @param vromId - vROM identifier (used as the OPFS directory name)
+     * @param entry - Registry entry containing CDN file URLs
+     * @param onProgress - Optional progress callback. Receives `phase` ('manifest', 'index', 'done'),
+     *   `file`, `loaded` bytes, and `total` bytes.
+     *
+     * @throws If manifest or index fetch fails (HTTP error)
+     */
     async pull(
         vromId: string,
         entry: VromRegistryEntry,
@@ -183,6 +263,14 @@ export class VromCache {
         onProgress?.({ phase: 'done', file: 'index.json', loaded, total: loaded });
     }
 
+    /**
+     * Evict a vROM from the OPFS cache.
+     *
+     * Deletes all files (manifest + index) for the given vROM.
+     * Safe to call even if the vROM is not cached (no-op).
+     *
+     * @param vromId - vROM identifier to evict
+     */
     async evict(vromId: string): Promise<void> {
         try {
             const root = await this.#getRoot();
@@ -190,6 +278,11 @@ export class VromCache {
         } catch { /* noop */ }
     }
 
+    /**
+     * Get the browser's storage usage estimate for the current origin.
+     *
+     * @returns `used` bytes currently consumed and `quota` bytes available
+     */
     async storageEstimate(): Promise<StorageEstimate> {
         const est = await navigator.storage.estimate();
         return { used: est.usage || 0, quota: est.quota || 0 };
