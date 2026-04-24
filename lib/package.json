@@ -1,0 +1,67 @@
+{
+  "name": "vecdb-wasm",
+  "version": "3.2.0",
+  "description": "Zero-boilerplate RAG for browser AI agents. WASM HNSW vector search + background ONNX embedding + OPFS-cached vROM cartridges.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./embed-worker": "./dist/embed-worker.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "wasm-pkg/vecdb_wasm.js",
+    "wasm-pkg/vecdb_wasm.d.ts",
+    "wasm-pkg/vecdb_wasm_bg.wasm",
+    "wasm-pkg/vecdb_wasm_bg.wasm.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "build:check": "tsc --noEmit",
+    "lint": "publint",
+    "lint:types": "attw --pack .",
+    "prepack": "npm run build",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "tsdown": "^0.12.0",
+    "typescript": "^5.8.0",
+    "publint": "^0.3.0",
+    "@arethetypeswrong/cli": "^0.18.0"
+  },
+  "keywords": [
+    "vector-database",
+    "hnsw",
+    "wasm",
+    "webassembly",
+    "rag",
+    "embeddings",
+    "transformers.js",
+    "browser",
+    "offline",
+    "ai-agent",
+    "opfs",
+    "web-worker"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://huggingface.co/spaces/philipp-zettl/vecdb-wasm"
+  },
+  "homepage": "https://huggingface.co/spaces/philipp-zettl/vecdb-wasm",
+  "sideEffects": false
+}
