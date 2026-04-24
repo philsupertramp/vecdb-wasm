@@ -9,28 +9,201 @@ license: mit
 short_description: WASM vector DB + AgentMemory SDK for browser RAG
 ---
 
-# 🔍 VecDB-WASM — Vector Search Engine + AgentMemory SDK
+# 🔍 VecDB-WASM
 
-A **WebAssembly vector search database** with a **zero-boilerplate SDK** for browser-based RAG. HNSW search in <1ms, background ONNX embedding, OPFS-cached vROM cartridges, and context hot-swapping — all 100% client-side.
+A WebAssembly vector search database with a zero-boilerplate SDK for browser-based RAG. Sub-millisecond HNSW search, background ONNX embedding, OPFS-cached vROM cartridges, and context hot-swapping — 100% client-side.
 
-## ✨ What's New in v3.2
+## Repository Layout
 
-- **🧠 AgentMemory SDK** — Single-class API: `init()` → `mount('hub://vrom-name')` → `search("query")`. Handles WASM init, worker spawning, OPFS caching, CDN fetching, and model diffing automatically.
-- **🔄 Context Hot-Swapping** — Switch domain expertise on the fly. `mount()` flushes the HNSW graph, resolves from OPFS cache (offline-first), and diffs the embedding model to skip unnecessary reloads.
-- **📝 LLM-Ready Output** — `formatContext()` produces structured context strings ready for any LLM prompt window.
+This is a **source-only repository**. All build artifacts (`pkg/`, `lib/wasm-pkg/`, `lib/dist/`) are generated from the source files below.
 
-## SDK Quick Start
+```
+src/                           ← Rust WASM engine (source of truth)
+  Cargo.toml                      Crate manifest
+  rust/
+    lib.rs                        wasm-bindgen API (VectorDB class)
+    hnsw.rs                       HNSW algorithm implementation
+    distance.rs                   Cosine / Euclidean / Dot Product metrics
 
-```javascript
-import { AgentMemory } from './sdk/vecdb-sdk.js';
+lib/                           ← npm package (TypeScript SDK)
+  src/
+    index.ts                      Barrel export
+    agent-memory.ts               AgentMemory class (init/mount/search)
+    vrom-cache.ts                 OPFS cache + hub:// URI resolver
+    embed-worker.ts               Background ONNX worker (model diffing)
+    types.ts                      All TypeScript type definitions
+  package.json                    npm package config + build scripts
+  tsconfig.json                   TypeScript compiler config
+  tsdown.config.ts                Build config (ESM + CJS + .d.ts + worker)
+  LICENSE
 
-const memory = new AgentMemory({ logLevel: 'info' });
+tools/                         ← Python tooling
+  vrom_builder.py                 Build vROM packages from documentation
+  vrom_cli.py                     CLI: list / pull / search / info
+
+index.html                     ← Space UI (Engine + vROM Hub + Builder)
+embed-worker.js                   Worker for the Space UI
+sdk/                              Pre-built SDK for the Space demo
+```
+
+## Prerequisites
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| [Rust](https://rustup.rs/) | stable | Compile HNSW engine to WASM |
+| [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) | ≥0.13 | Rust → WASM + JS bindings |
+| [Node.js](https://nodejs.org/) | ≥22 | Build TypeScript SDK |
+| [Python](https://python.org/) | ≥3.10 | vROM builder + CLI (optional) |
+
+```bash
+# Install Rust + wasm-pack (if not already)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+cargo install wasm-pack
+```
+
+## Building from Source
+
+The build has two stages: **Rust → WASM**, then **TypeScript → npm package**.
+
+### Quick Start (full build)
+
+```bash
+cd lib
+npm install
+npm run build        # runs build:wasm then build:js
+```
+
+This produces:
+```
+lib/wasm-pkg/        ← wasm-pack output (JS bindings + .wasm binary)
+lib/dist/            ← Final npm package contents
+  index.js             ESM  (14 KB)
+  index.cjs            CJS  (15 KB)
+  index.d.ts           TypeScript declarations
+  index.d.cts          TypeScript declarations (CJS)
+  embed-worker.js      Background worker (separate file)
+  vecdb_wasm_bg.wasm   WASM binary (172 KB)
+```
+
+### Stage 1: Compile Rust → WASM
+
+```bash
+cd lib
+npm run build:wasm
+```
+
+Runs `wasm-pack build ../src --target bundler --out-dir ../lib/wasm-pkg --release`.
+
+This reads `src/Cargo.toml` and the Rust source files in `src/rust/`, compiles them with `opt-level = "z"` + LTO + strip, and outputs:
+
+| File | Description |
+|------|-------------|
+| `wasm-pkg/vecdb_wasm.js` | wasm-bindgen JS glue (ESM) |
+| `wasm-pkg/vecdb_wasm.d.ts` | TypeScript types for the WASM API |
+| `wasm-pkg/vecdb_wasm_bg.wasm` | The compiled WASM binary (~172 KB) |
+
+### Stage 2: Bundle TypeScript → npm package
+
+```bash
+cd lib
+npm run build:js
+```
+
+Runs `tsdown` which:
+1. Bundles `src/index.ts` → `dist/index.js` (ESM) + `dist/index.cjs` (CJS) + type declarations
+2. Bundles `src/embed-worker.ts` → `dist/embed-worker.js` (separate file, ESM)
+3. Copies `wasm-pkg/vecdb_wasm_bg.wasm` → `dist/`
+4. Renames hashed `.d.ts` files to stable names matching the `package.json` exports map
+
+### Validation
+
+```bash
+cd lib
+npm run build:check   # TypeScript type-check (no emit)
+npm run lint          # publint — validates exports map, file extensions
+npm run lint:types    # are-the-types-wrong — checks type resolution
+npm pack --dry-run    # Preview what npm publish would include
+```
+
+### Clean
+
+```bash
+cd lib
+npm run clean         # Removes dist/ and wasm-pkg/
+```
+
+## CI/CD
+
+The build is fully deterministic and automatable. A GitHub Actions workflow needs only Rust + Node:
+
+```yaml
+name: Build & Publish
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: jetli/wasm-pack-action@v0.4.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: cd lib && npm ci
+
+      - name: Build (Rust → WASM → TypeScript)
+        run: cd lib && npm run build
+
+      - name: Validate
+        run: cd lib && npm run lint
+
+      - name: Publish to npm
+        run: cd lib && npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
+
+### Build scripts reference
+
+| Script | Command | What it does |
+|--------|---------|--------------|
+| `build:wasm` | `wasm-pack build ...` | Rust → WASM + JS bindings |
+| `build:js` | `tsdown` | TypeScript → ESM/CJS/dts + worker + WASM copy |
+| `build` | `build:wasm && build:js` | Full pipeline |
+| `build:check` | `tsc --noEmit` | Type-check only |
+| `lint` | `publint` | Validate package exports |
+| `lint:types` | `attw --pack .` | Check type resolution across CJS/ESM |
+| `clean` | `rm -rf dist wasm-pkg` | Remove all build artifacts |
+| `prepack` | `npm run build` | Auto-runs before `npm pack` / `npm publish` |
+
+## Using the SDK
+
+### Install
+
+```bash
+npm install vecdb-wasm
+```
+
+### Basic Usage
+
+```typescript
+import { AgentMemory } from 'vecdb-wasm';
+
+const memory = new AgentMemory();
 await memory.init();
 
 // Mount a vROM — auto-caches to OPFS, auto-loads embedding model
 await memory.mount('hf-transformers-docs');
 
-// Search with context expansion (linked-list traversal)
+// Search with context expansion
 const results = await memory.search("how to use pipelines", {
     topK: 3,
     expandContext: true,
@@ -39,40 +212,37 @@ const results = await memory.search("how to use pipelines", {
 // Format for LLM injection
 const context = memory.formatContext(results, { maxTokens: 2000 });
 
-// Hot-swap to different domain — model stays loaded if compatible
+// Hot-swap to a different domain — skips model reload if compatible
 await memory.mount('hf-ml-training');
 ```
 
-[**→ Try the interactive SDK demo**](https://huggingface.co/spaces/philipp-zettl/vecdb-wasm/blob/main/sdk/demo.html)
+### Worker Setup
 
-## SDK API Reference
+The embed worker runs transformers.js in a background thread. The SDK auto-resolves its path via `import.meta.url`, but you can override it:
 
-### `new AgentMemory(options?)`
-| Option | Default | Description |
-|--------|---------|-------------|
-| `workerPath` | `'./sdk/embed-worker.js'` | Path to embed worker |
-| `wasmPkgPath` | `'./pkg/vecdb_wasm.js'` | Path to WASM bindings |
-| `registryUrl` | CDN registry | Custom vROM registry URL |
-| `logLevel` | `'warn'` | `silent\|error\|warn\|info\|debug` |
+```typescript
+const memory = new AgentMemory({
+    workerPath: '/static/embed-worker.js',
+    wasmPkgPath: '/static/wasm-pkg/vecdb_wasm.js',
+});
+```
 
-### Methods
+For bundlers (Vite, webpack), the worker path resolves from `node_modules/vecdb-wasm/dist/embed-worker.js` automatically.
+
+### API Reference
+
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `init()` | `Promise<void>` | Initialize WASM + spawn worker |
 | `mount(id, opts?)` | `Promise<MountStatus>` | Mount a vROM (OPFS cache → CDN fallback → model diff) |
 | `unmount()` | `void` | Free HNSW graph from RAM |
-| `search(query, opts?)` | `Promise<SearchResult[]>` | Embed + HNSW search + optional context expansion |
-| `formatContext(results, opts?)` | `string` | Format results as LLM context string |
-| `getMountStatus()` | `MountStatus` | Current state: vROM, vectors, model, etc. |
-| `listVroms()` | `Promise<object[]>` | List all available vROMs from registry |
+| `search(query, opts?)` | `Promise<SearchResult[]>` | Embed + HNSW search + context expansion |
+| `formatContext(results, opts?)` | `string` | Format as LLM context string |
+| `getMountStatus()` | `MountStatus` | Current state |
+| `listVroms()` | `Promise<VromRegistryEntry[]>` | List available vROMs |
 | `isCached(id)` | `Promise<boolean>` | Check OPFS cache |
-| `evict(id)` | `Promise<void>` | Remove vROM from OPFS cache |
+| `evict(id)` | `Promise<void>` | Remove from OPFS cache |
 | `destroy()` | `void` | Free all resources + terminate worker |
-
-### Search Options
-```typescript
-{ topK: 5, expandContext: true, contextWindow: 2, efSearch: 100 }
-```
 
 ## Architecture
 
@@ -97,53 +267,21 @@ await memory.mount('hf-ml-training');
 │  └───────────────────────────────────────────────────────────┘     │
 │                                                                     │
 │  ┌───────────────────────────────────────────────────────────┐     │
-│  │  📡 vROM Registry CDN — HF Hub resolve/main/ endpoints     │     │
+│  │  📡 vROM Registry CDN — HF Hub dataset resolve/ endpoints  │     │
 │  └───────────────────────────────────────────────────────────┘     │
-│                                                                     │
-│  100% client-side · Offline-capable · Non-blocking UI               │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Hot-Swap Lifecycle
-
-When `mount()` is called:
-
-1. **Resolve** — `hub://vrom-id` → registry lookup → CDN URLs
-2. **Cache Check** — OPFS hit? Load from disk (sub-second). Miss? Stream from CDN → cache to OPFS.
-3. **WASM Flush** — `db.free()` drops old HNSW graph from RAM.
-4. **Load** — `VectorDB.load(json)` restores the new graph.
-5. **Model Diff** — Compare `embedding_spec.model` of new vROM vs loaded ONNX model. Same model? Skip reload. Different? Hot-swap in the worker thread silently.
-
 ## Official vROMs
 
-| ID | Vectors | Size | Source |
-|----|---------|------|--------|
-| `hf-transformers-docs` | 1,356 | 12.6 MB | HF Transformers + Hub |
-| `hf-ml-training` | 629 | 5.8 MB | TRL + PEFT + Datasets |
+Pre-computed HNSW indexes served from the [vROM Registry](https://huggingface.co/datasets/philipp-zettl/vrom-registry):
 
-Registry: [philipp-zettl/vrom-registry](https://huggingface.co/datasets/philipp-zettl/vrom-registry)
+| ID | Vectors | Size | Content |
+|----|---------|------|---------|
+| `hf-transformers-docs` | 1,356 | 12.6 MB | HF Transformers + Hub docs |
+| `hf-ml-training` | 629 | 5.8 MB | TRL + PEFT + Datasets docs |
 
-## File Structure
-
-```
-sdk/                       # AgentMemory SDK
-  vecdb-sdk.js             #   AgentMemory class
-  vrom-cache.js            #   OPFS cache + hub:// resolver
-  embed-worker.js          #   Background ONNX worker (model diffing)
-  demo.html                #   Interactive demo page
-index.html                 # Main Space UI (Engine + vROM Hub + Builder)
-embed-worker.js            # Worker for the main Space UI
-pkg/                       # WASM binaries
-  vecdb_wasm.js            #   JS bindings
-  vecdb_wasm_bg.wasm       #   WASM binary (172 KB)
-src/rust/                  # Rust source
-  hnsw.rs / distance.rs / lib.rs
-tools/
-  vrom_builder.py          # Python vROM builder
-  vrom_cli.py              # CLI for local vROM management
-```
-
-## vROM CLI
+### vROM CLI (Python)
 
 ```bash
 pip install requests sentence-transformers
@@ -152,15 +290,23 @@ python tools/vrom_cli.py pull hf-transformers-docs
 python tools/vrom_cli.py search hf-ml-training "DPO training"
 ```
 
+### Building Custom vROMs
+
+```bash
+pip install sentence-transformers huggingface_hub
+python tools/vrom_builder.py    # See source for configuration
+```
+
 ## Performance
 
 | Metric | Value |
 |--------|-------|
-| HNSW Search | **< 1 ms** |
-| Embedding (worker) | **~50 ms**/sentence |
-| vROM mount (cached) | **< 500 ms** |
-| vROM hot-swap (same model) | **< 500 ms** |
-| WASM Binary | **172 KB** |
+| HNSW Search | < 1 ms |
+| Embedding (worker) | ~50 ms/sentence |
+| vROM mount (cached) | < 500 ms |
+| Hot-swap (same model) | < 500 ms |
+| WASM Binary | 172 KB |
+| npm tarball | 178 KB |
 
 ## License
 
