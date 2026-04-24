@@ -18,7 +18,12 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./embed-worker": "./dist/embed-worker.js",
+    "./embed-worker": {
+      "import": {
+        "types": "./dist/embed-worker.d.ts",
+        "default": "./dist/embed-worker.js"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
