@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentMemory SDK Demo</title>
+    <style>
+        :root { --bg:#0f1117;--surface:#1a1d27;--surface2:#242834;--border:#2e3340;--text:#e1e4ea;--dim:#8b8fa3;--accent:#6c63ff;--green:#4ade80;--yellow:#fbbf24;--blue:#60a5fa;--red:#ff6b6b;--mono:'SF Mono','Cascadia Code','Fira Code',Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;padding:2rem}
+        .container{max-width:900px;margin:0 auto}
+        h1{font-size:1.75rem;margin-bottom:0.5rem;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--dim);margin-bottom:2rem;font-size:0.9rem}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem}
+        .card h2{font-size:1rem;margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem}
+        .status{display:inline-flex;align-items:center;gap:0.5rem;padding:0.25rem 0.75rem;border-radius:999px;font-size:0.75rem;font-family:var(--mono)}
+        .status.ok{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.3)}
+        .status.loading{background:rgba(251,191,36,0.1);color:var(--yellow);border:1px solid rgba(251,191,36,0.3)}
+        .status.off{background:var(--surface2);color:var(--dim);border:1px solid var(--border)}
+        button{background:var(--accent);color:white;border:none;padding:0.6rem 1.25rem;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;transition:opacity 0.2s}
+        button:hover{opacity:0.85}
+        button:disabled{opacity:0.4;cursor:not-allowed}
+        button.secondary{background:var(--surface2);border:1px solid var(--border)}
+        .btn-row{display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem}
+        input,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:0.6rem 0.75rem;border-radius:8px;font-size:0.85rem;font-family:var(--mono);outline:none}
+        input:focus{border-color:var(--accent)}
+        label{display:block;font-size:0.8rem;color:var(--dim);margin-bottom:0.35rem}
+        .log{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem;font-family:var(--mono);font-size:0.78rem;max-height:250px;overflow-y:auto;line-height:1.6}
+        .log .t{color:var(--dim)}.log .ok{color:var(--green)}.log .err{color:var(--red)}.log .info{color:var(--blue)}
+        .result{background:var(--surface2);border-radius:8px;padding:0.75rem;margin-bottom:0.5rem;font-size:0.83rem}
+        .result .dist{color:var(--yellow);font-family:var(--mono);font-size:0.75rem}
+        .result .src{color:var(--dim);font-size:0.72rem;margin-top:0.35rem;font-family:var(--mono)}
+        .result .heading{color:var(--accent);font-weight:600;margin-bottom:0.25rem}
+        .progress{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;margin:0.5rem 0}
+        .progress .fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:2px;transition:width 0.2s;width:0%}
+        pre{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem;font-size:0.8rem;overflow-x:auto;font-family:var(--mono);color:var(--dim);margin-top:0.5rem;white-space:pre-wrap;word-break:break-word}
+        .form-row{display:flex;gap:0.75rem;align-items:end}
+        .form-row>div{flex:1}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 AgentMemory SDK Demo</h1>
+        <p class="subtitle">Zero-boilerplate RAG for browser AI agents. Mount a vROM, search in milliseconds.</p>
+
+        <!-- Status -->
+        <div class="card">
+            <h2>📊 Status</h2>
+            <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
+                <span class="status off" id="sWasm">WASM</span>
+                <span class="status off" id="sModel">Model</span>
+                <span class="status off" id="sVrom">vROM</span>
+                <span style="flex:1"></span>
+                <span style="font-family:var(--mono);font-size:0.75rem;color:var(--dim)" id="sMeta">—</span>
+            </div>
+            <div class="progress" id="dlProgress" style="display:none"><div class="fill" id="dlFill"></div></div>
+        </div>
+
+        <!-- Init + Mount -->
+        <div class="card">
+            <h2>🚀 Lifecycle</h2>
+            <div class="btn-row">
+                <button id="btnInit">1. init()</button>
+                <button id="btnMount1" disabled>2. mount('hf-transformers-docs')</button>
+                <button id="btnMount2" disabled>3. mount('hf-ml-training')</button>
+                <button id="btnUnmount" disabled class="secondary">unmount()</button>
+                <button id="btnDestroy" disabled class="secondary" style="color:var(--red)">destroy()</button>
+            </div>
+        </div>
+
+        <!-- Search -->
+        <div class="card">
+            <h2>🔎 Search</h2>
+            <div class="form-row">
+                <div style="flex:3">
+                    <label>Query</label>
+                    <input type="text" id="searchInput" placeholder="how to fine-tune a model with LoRA" disabled>
+                </div>
+                <div>
+                    <label>topK</label>
+                    <input type="number" id="searchK" value="3" min="1" max="20">
+                </div>
+                <div>
+                    <label>expand</label>
+                    <select id="searchExpand" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:0.6rem;border-radius:8px;font-family:var(--mono)">
+                        <option value="0">off</option>
+                        <option value="1" selected>±1</option>
+                        <option value="2">±2</option>
+                    </select>
+                </div>
+            </div>
+            <div class="btn-row">
+                <button id="btnSearch" disabled>Search</button>
+                <button id="btnFormat" disabled class="secondary">Format for LLM</button>
+            </div>
+            <div id="results" style="margin-top:1rem"></div>
+        </div>
+
+        <!-- LLM Context -->
+        <div class="card" id="contextCard" style="display:none">
+            <h2>📝 LLM Context String</h2>
+            <pre id="contextPre"></pre>
+        </div>
+
+        <!-- Log -->
+        <div class="card">
+            <h2>📋 SDK Log</h2>
+            <div class="log" id="log"></div>
+        </div>
+
+        <!-- Code -->
+        <div class="card">
+            <h2>💻 Code</h2>
+            <pre><span style="color:var(--blue)">import</span> { AgentMemory } <span style="color:var(--blue)">from</span> <span style="color:var(--green)">'./sdk/vecdb-sdk.js'</span>;
+
+<span style="color:var(--blue)">const</span> memory = <span style="color:var(--blue)">new</span> AgentMemory({ logLevel: <span style="color:var(--green)">'info'</span> });
+<span style="color:var(--blue)">await</span> memory.init();
+
+<span style="color:var(--dim)">// Mount a vROM — auto-caches to OPFS, auto-loads embedding model</span>
+<span style="color:var(--blue)">await</span> memory.mount(<span style="color:var(--green)">'hf-transformers-docs'</span>);
+
+<span style="color:var(--dim)">// Search with context expansion</span>
+<span style="color:var(--blue)">const</span> results = <span style="color:var(--blue)">await</span> memory.search(<span style="color:var(--green)">"pipeline for sentiment analysis"</span>, {
+    topK: 3,
+    expandContext: <span style="color:var(--yellow)">true</span>,
+});
+
+<span style="color:var(--dim)">// Format as LLM context string</span>
+<span style="color:var(--blue)">const</span> context = memory.formatContext(results, { maxTokens: 2000 });
+
+<span style="color:var(--dim)">// Hot-swap to different domain — model stays loaded if compatible</span>
+<span style="color:var(--blue)">await</span> memory.mount(<span style="color:var(--green)">'hf-ml-training'</span>);
+</pre>
+        </div>
+    </div>
+
+    <script type="module">
+        import { AgentMemory } from './sdk/vecdb-sdk.js';
+
+        const logEl = document.getElementById('log');
+        function log(msg, level = 'info') {
+            const t = new Date().toLocaleTimeString('en-US', { hour12: false });
+            const e = document.createElement('div');
+            e.innerHTML = `<span class="t">[${t}]</span> <span class="${level}">${msg}</span>`;
+            logEl.prepend(e);
+        }
+
+        let memory = null;
+        let lastResults = null;
+
+        function updateStatus() {
+            const s = memory?.getMountStatus();
+            const wasm = document.getElementById('sWasm');
+            const model = document.getElementById('sModel');
+            const vrom = document.getElementById('sVrom');
+            const meta = document.getElementById('sMeta');
+
+            if (!memory) {
+                wasm.className = 'status off'; wasm.textContent = 'WASM';
+                model.className = 'status off'; model.textContent = 'Model';
+                vrom.className = 'status off'; vrom.textContent = 'vROM';
+                meta.textContent = '—';
+                return;
+            }
+
+            wasm.className = 'status ok'; wasm.textContent = '✅ WASM';
+
+            if (s?.model) {
+                model.className = 'status ok';
+                model.textContent = `✅ ${s.model.split('/').pop()}`;
+            } else {
+                model.className = 'status off'; model.textContent = 'Model';
+            }
+
+            if (s?.activeVrom) {
+                vrom.className = 'status ok';
+                vrom.textContent = `✅ ${s.activeVrom}`;
+                meta.textContent = `${s.vectors.toLocaleString()} vectors · ${s.dim}d · v${s.version || '?'}`;
+            } else {
+                vrom.className = 'status off'; vrom.textContent = 'vROM';
+                meta.textContent = '—';
+            }
+        }
+
+        // Init
+        document.getElementById('btnInit').addEventListener('click', async () => {
+            const btn = document.getElementById('btnInit');
+            btn.disabled = true; btn.textContent = 'Initializing...';
+            try {
+                memory = new AgentMemory({ logLevel: 'info' });
+
+                // Wire progress for UI
+                memory.onProgress((p) => {
+                    const bar = document.getElementById('dlProgress');
+                    const fill = document.getElementById('dlFill');
+                    bar.style.display = 'block';
+                    if (p.total > 0) fill.style.width = `${((p.loaded / p.total) * 100).toFixed(0)}%`;
+                });
+
+                await memory.init();
+                log('SDK initialized (WASM + Worker)', 'ok');
+                btn.textContent = '✅ Initialized';
+                document.getElementById('btnMount1').disabled = false;
+                document.getElementById('btnMount2').disabled = false;
+                document.getElementById('btnDestroy').disabled = false;
+                updateStatus();
+            } catch (e) {
+                log(`Init failed: ${e.message}`, 'err');
+                btn.textContent = '❌ Failed';
+                btn.disabled = false;
+            }
+        });
+
+        // Mount
+        async function doMount(vromId) {
+            const m1 = document.getElementById('btnMount1');
+            const m2 = document.getElementById('btnMount2');
+            m1.disabled = true; m2.disabled = true;
+            log(`Mounting: ${vromId}...`, 'info');
+            const t0 = performance.now();
+            try {
+                const status = await memory.mount(vromId, {
+                    onProgress: (p) => {
+                        if (p.phase === 'index' && p.total > 0) {
+                            const bar = document.getElementById('dlProgress');
+                            const fill = document.getElementById('dlFill');
+                            bar.style.display = 'block';
+                            fill.style.width = `${((p.loaded / p.total) * 100).toFixed(0)}%`;
+                        }
+                        if (p.phase === 'done') {
+                            document.getElementById('dlProgress').style.display = 'none';
+                        }
+                    }
+                });
+                const ms = (performance.now() - t0).toFixed(0);
+                log(`Mounted ${vromId}: ${status.vectors} vectors in ${ms}ms`, 'ok');
+                document.getElementById('searchInput').disabled = false;
+                document.getElementById('btnSearch').disabled = false;
+                document.getElementById('btnUnmount').disabled = false;
+                document.getElementById('dlProgress').style.display = 'none';
+                updateStatus();
+            } catch (e) {
+                log(`Mount failed: ${e.message}`, 'err');
+            }
+            m1.disabled = false; m2.disabled = false;
+        }
+
+        document.getElementById('btnMount1').addEventListener('click', () => doMount('hf-transformers-docs'));
+        document.getElementById('btnMount2').addEventListener('click', () => doMount('hf-ml-training'));
+
+        // Unmount
+        document.getElementById('btnUnmount').addEventListener('click', () => {
+            memory.unmount();
+            log('Unmounted', 'ok');
+            document.getElementById('searchInput').disabled = true;
+            document.getElementById('btnSearch').disabled = true;
+            document.getElementById('btnUnmount').disabled = true;
+            document.getElementById('results').innerHTML = '';
+            updateStatus();
+        });
+
+        // Destroy
+        document.getElementById('btnDestroy').addEventListener('click', () => {
+            memory.destroy();
+            memory = null;
+            log('Destroyed SDK instance', 'ok');
+            document.getElementById('btnInit').disabled = false;
+            document.getElementById('btnInit').textContent = '1. init()';
+            document.getElementById('btnMount1').disabled = true;
+            document.getElementById('btnMount2').disabled = true;
+            document.getElementById('btnUnmount').disabled = true;
+            document.getElementById('btnDestroy').disabled = true;
+            document.getElementById('searchInput').disabled = true;
+            document.getElementById('btnSearch').disabled = true;
+            document.getElementById('btnFormat').disabled = true;
+            document.getElementById('results').innerHTML = '';
+            updateStatus();
+        });
+
+        // Search
+        async function doSearch() {
+            const q = document.getElementById('searchInput').value.trim();
+            if (!q || !memory?.isReady) return;
+
+            const topK = parseInt(document.getElementById('searchK').value) || 3;
+            const expandVal = parseInt(document.getElementById('searchExpand').value) || 0;
+
+            log(`Searching: "${q}" (k=${topK}, expand=${expandVal})`, 'info');
+            const t0 = performance.now();
+
+            try {
+                lastResults = await memory.search(q, {
+                    topK,
+                    expandContext: expandVal > 0,
+                    contextWindow: expandVal,
+                });
+                const ms = (performance.now() - t0).toFixed(1);
+                log(`Found ${lastResults.length} results in ${ms}ms`, 'ok');
+
+                const el = document.getElementById('results');
+                el.innerHTML = lastResults.map((r, i) => `
+                    <div class="result">
+                        <div class="heading">#${i + 1} · ${r.metadata.section_heading || '—'}</div>
+                        <div>${escapeHtml(r.text.slice(0, 400))}${r.text.length > 400 ? '…' : ''}</div>
+                        <div class="src">
+                            <span class="dist">d=${r.distance.toFixed(4)}</span>
+                            ${r.metadata.source_file ? ` · 📄 ${r.metadata.source_file}` : ''}
+                            ${r.metadata.url ? ` · <a href="${r.metadata.url}" target="_blank" style="color:var(--blue)">🔗</a>` : ''}
+                            ${r.metadata._expanded ? ` · 📖 ${r.metadata._contextChunks} chunks` : ''}
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('btnFormat').disabled = false;
+            } catch (e) {
+                log(`Search error: ${e.message}`, 'err');
+            }
+        }
+
+        document.getElementById('btnSearch').addEventListener('click', doSearch);
+        document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+        // Format for LLM
+        document.getElementById('btnFormat').addEventListener('click', () => {
+            if (!lastResults?.length) return;
+            const ctx = memory.formatContext(lastResults, { maxTokens: 2000, includeSources: true });
+            document.getElementById('contextPre').textContent = ctx;
+            document.getElementById('contextCard').style.display = 'block';
+            log(`Formatted context: ~${Math.ceil(ctx.length / 4)} tokens`, 'ok');
+        });
+
+        function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    </script>
+</body>
+</html>
