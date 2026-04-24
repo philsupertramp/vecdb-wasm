@@ -1,6 +1,6 @@
 {
   "name": "vrom.js",
-  "version": "3.2.2",
+  "version": "3.2.3",
   "description": "Zero-boilerplate RAG for browser AI agents. WASM HNSW vector search + background ONNX embedding + OPFS-cached vROM cartridges.",
   "license": "MIT",
   "type": "module",
@@ -71,7 +71,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/philsupertramp/vecdb-wasm"
+    "url": "git+https://github.com/philsupertramp/vecdb-wasm.git"
   },
   "homepage": "https://huggingface.co/spaces/philipp-zettl/vecdb-wasm",
   "sideEffects": false
