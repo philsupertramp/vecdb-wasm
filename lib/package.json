@@ -71,7 +71,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://huggingface.co/spaces/philipp-zettl/vecdb-wasm"
+    "url": "https://github.com/philsupertramp/vecdb-wasm"
   },
   "homepage": "https://huggingface.co/spaces/philipp-zettl/vecdb-wasm",
   "sideEffects": false
