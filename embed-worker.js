@@ -10,24 +10,32 @@
  *     { type: 'embed', texts, id }            — Embed a batch of texts
  *     { type: 'unload' }                      — Release model memory
  *
- *   Worker → Main:
- *     { status: 'initiate', file, name }      — Download starting
- *     { status: 'progress', file, progress, loaded, total }
- *     { status: 'done', file }                — File cached
- *     { status: 'ready', dim }                — Model ready, reports dimension
- *     { status: 'result', id, embeddings, dims }  — Embedding result (transferable)
- *     { status: 'error', id?, message }       — Error
- *     { status: 'unloaded' }                  — Model released
+ *   Worker → Main (all tagged with source: 'vecdb'):
+ *     { source, status: 'progress', file, progress, loaded, total }
+ *     { source, status: 'ready', dim }                — Model ready
+ *     { source, status: 'result', id, embeddings, dims }
+ *     { source, status: 'error', id?, message }
+ *     { source, status: 'unloaded' }
  */
 
 import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
+
+const MSG_TAG = 'vecdb';
 
 let extractor = null;
 let currentModel = null;
 let currentDtype = null;
 let loadingPromise = null;
 
-async function loadModel(modelId, dtype, progressCallback) {
+function send(msg) {
+    self.postMessage({ ...msg, source: MSG_TAG });
+}
+
+function sendTransfer(msg, transfer) {
+    self.postMessage({ ...msg, source: MSG_TAG }, transfer);
+}
+
+async function loadModel(modelId, dtype) {
     // If already loading the same model, wait for it
     if (loadingPromise && currentModel === modelId && currentDtype === dtype) {
         return loadingPromise;
@@ -44,7 +52,16 @@ async function loadModel(modelId, dtype, progressCallback) {
 
     loadingPromise = pipeline('feature-extraction', modelId, {
         dtype: dtype,
-        progress_callback: progressCallback,
+        progress_callback: (p) => {
+            // Only relay download progress events we care about.
+            // Transformers.js emits: initiate, download, progress, done, ready
+            // We only forward 'progress' (with loaded/total) so the main thread
+            // can update the progress bar. Everything else is ignored to avoid
+            // status collisions (e.g. transformers.js 'ready' vs our 'ready').
+            if (p.status === 'progress' && p.total > 0) {
+                send({ status: 'dl-progress', file: p.file, loaded: p.loaded, total: p.total });
+            }
+        },
     });
 
     extractor = await loadingPromise;
@@ -58,22 +75,19 @@ self.addEventListener('message', async (event) => {
         switch (type) {
             case 'load': {
                 const { modelId, dtype } = event.data;
-                await loadModel(modelId, dtype, (p) => {
-                    // Relay all progress events to main thread
-                    self.postMessage(p);
-                });
+                await loadModel(modelId, dtype);
 
                 // Probe dimension by embedding a test string
                 const test = await extractor(['test'], { pooling: 'mean', normalize: true });
                 const dim = test.dims[1];
 
-                self.postMessage({ status: 'ready', dim });
+                send({ status: 'ready', dim });
                 break;
             }
 
             case 'embed': {
                 if (!extractor) {
-                    self.postMessage({ status: 'error', id, message: 'Model not loaded' });
+                    send({ status: 'error', id, message: 'Model not loaded' });
                     return;
                 }
 
@@ -82,9 +96,9 @@ self.addEventListener('message', async (event) => {
 
                 // Copy to a fresh Float32Array for zero-copy transfer
                 const float32 = new Float32Array(output.data);
-                self.postMessage(
+                sendTransfer(
                     { status: 'result', id, embeddings: float32, dims: output.dims },
-                    [float32.buffer]  // Transfer the buffer, not copy
+                    [float32.buffer]
                 );
                 break;
             }
@@ -97,11 +111,11 @@ self.addEventListener('message', async (event) => {
                 currentModel = null;
                 currentDtype = null;
                 loadingPromise = null;
-                self.postMessage({ status: 'unloaded' });
+                send({ status: 'unloaded' });
                 break;
             }
         }
     } catch (err) {
-        self.postMessage({ status: 'error', id, message: err.message || String(err) });
+        send({ status: 'error', id, message: err.message || String(err) });
     }
 });

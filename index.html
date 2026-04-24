@@ -788,16 +788,17 @@
 
         embedWorker.addEventListener('message', (e) => {
             const d = e.data;
+            // Only handle messages tagged by our worker — ignore raw transformers.js events
+            if (d.source !== 'vecdb') return;
+
             switch (d.status) {
-                // Model download progress
-                case 'initiate': break;
-                case 'progress':
+                // Model download progress (renamed to avoid collision with transformers.js 'progress')
+                case 'dl-progress':
                     if (d.total > 0) {
                         const pf = document.getElementById('modelLoadFill');
                         if (pf) pf.style.width = `${((d.loaded / d.total) * 100).toFixed(0)}%`;
                     }
                     break;
-                case 'done': break;
 
                 // Model ready
                 case 'ready':
