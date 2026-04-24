@@ -43,7 +43,7 @@ tools/                         ← Python tooling
 
 index.html                     ← Space UI (Engine + vROM Hub + Builder)
 embed-worker.js                   Worker for the Space UI
-sdk/                              Pre-built SDK for the Space demo
+pkg/                              Pre-built WASM bindings for the Space UI
 ```
 
 ## Prerequisites
@@ -82,6 +82,7 @@ lib/dist/            ← Final npm package contents
   index.d.ts           TypeScript declarations
   index.d.cts          TypeScript declarations (CJS)
   embed-worker.js      Background worker (separate file)
+  embed-worker.d.ts    Worker type declarations
   vecdb_wasm_bg.wasm   WASM binary (172 KB)
 ```
 
@@ -111,7 +112,7 @@ npm run build:js
 
 Runs `tsdown` which:
 1. Bundles `src/index.ts` → `dist/index.js` (ESM) + `dist/index.cjs` (CJS) + type declarations
-2. Bundles `src/embed-worker.ts` → `dist/embed-worker.js` (separate file, ESM)
+2. Bundles `src/embed-worker.ts` → `dist/embed-worker.js` + `dist/embed-worker.d.ts` (separate file, ESM)
 3. Copies `wasm-pkg/vecdb_wasm_bg.wasm` → `dist/`
 4. Renames hashed `.d.ts` files to stable names matching the `package.json` exports map
 
