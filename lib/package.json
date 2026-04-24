@@ -31,12 +31,14 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build:wasm": "wasm-pack build ../src --target bundler --out-dir ../lib/wasm-pkg --release",
+    "build:js": "tsdown",
+    "build": "npm run build:wasm && npm run build:js",
     "build:check": "tsc --noEmit",
     "lint": "publint",
     "lint:types": "attw --pack .",
     "prepack": "npm run build",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist wasm-pkg"
   },
   "devDependencies": {
     "tsdown": "^0.12.0",
