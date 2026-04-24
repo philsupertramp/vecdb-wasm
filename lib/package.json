@@ -40,7 +40,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build:wasm": "wasm-pack build ../src --target bundler --out-dir ../lib/wasm-pkg --release",
+    "build:wasm": "wasm-pack build ../src --target bundler --out-dir ../lib/wasm-pkg --release && rm -f ../lib/wasm-pkg/.gitignore",
     "build:js": "tsdown",
     "build": "npm run build:wasm && npm run build:js",
     "build:check": "tsc --noEmit",
