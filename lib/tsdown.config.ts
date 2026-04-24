@@ -14,6 +14,10 @@ function stabilizeDtsNames() {
             renameSync(`${dir}/${file}`, `${dir}/index.d.cts`);
         } else if (file.match(/^index-[A-Za-z0-9_]+\.d\.cts\.map$/)) {
             renameSync(`${dir}/${file}`, `${dir}/index.d.cts.map`);
+        } else if (file.match(/^embed-worker-[A-Za-z0-9_]+\.d\.ts$/)) {
+            renameSync(`${dir}/${file}`, `${dir}/embed-worker.d.ts`);
+        } else if (file.match(/^embed-worker-[A-Za-z0-9_]+\.d\.ts\.map$/)) {
+            renameSync(`${dir}/${file}`, `${dir}/embed-worker.d.ts.map`);
         }
     }
 }
@@ -40,14 +44,17 @@ export default [
         },
     }),
 
-    // ── Embed Worker: separate file, ESM only ──
+    // ── Embed Worker: separate file, ESM only + declarations ──
     defineConfig({
         entry: { 'embed-worker': 'src/embed-worker.ts' },
         format: ['esm'],
         outDir: 'dist',
-        dts: false,
+        dts: true,
         target: 'es2022',
         platform: 'browser',
         clean: false,
+        onSuccess() {
+            stabilizeDtsNames();
+        },
     }),
 ];
