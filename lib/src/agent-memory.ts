@@ -23,6 +23,8 @@ type LogLevel = keyof typeof LOG_LEVELS;
  * Wraps the VecDB-WASM HNSW engine, a background ONNX embedding worker,
  * and an OPFS-backed vROM cache into a single class.
  *
+ * Lifecycle: `constructor` → {@link init} → {@link mount} → {@link search} → {@link destroy}
+ *
  * @example
  * ```ts
  * const memory = new AgentMemory();
@@ -51,9 +53,16 @@ export class AgentMemory {
     #workerPath: string;
     #wasmPkgPath: string;
 
-    /** Optional progress callback for model downloads. Set via onProgress(). */
+    /** Optional progress callback for model downloads. Set via {@link onProgress}. */
     _onProgress?: (p: { file: string; loaded: number; total: number }) => void;
 
+    /**
+     * Create an AgentMemory instance.
+     *
+     * Does not perform any async work — call {@link init} to start the engine.
+     *
+     * @param options - Configuration options. All fields are optional with sensible defaults.
+     */
     constructor(options: AgentMemoryOptions = {}) {
         this.#workerPath = options.workerPath ?? new URL('./embed-worker.js', import.meta.url).href;
         this.#wasmPkgPath = options.wasmPkgPath ?? new URL('../wasm-pkg/vecdb_wasm.js', import.meta.url).href;
@@ -162,8 +171,19 @@ export class AgentMemory {
     // ─── Public API ────────────────────────────────────────────────────
 
     /**
-     * Initialize WASM engine and spawn the background worker.
-     * Must be called once before any other method.
+     * Initialize the WASM engine and spawn the background embedding worker.
+     *
+     * Must be called once before {@link mount}, {@link search}, or any other method.
+     * Calling `init()` multiple times is safe — subsequent calls are no-ops.
+     *
+     * @throws If the WASM module fails to load (invalid path, network error)
+     * @throws If the Web Worker fails to spawn (CSP violation, invalid path)
+     *
+     * @example
+     * ```ts
+     * const memory = new AgentMemory();
+     * await memory.init();
+     * ```
      */
     async init(): Promise<void> {
         if (this.#initialized) return;
@@ -179,9 +199,33 @@ export class AgentMemory {
     }
 
     /**
-     * Mount a vROM cartridge. Handles OPFS cache, CDN fetch, WASM load, model diff.
+     * Mount a vROM cartridge. Handles the full pipeline: registry lookup →
+     * OPFS cache check → CDN download → WASM index load → embedding model diffing.
      *
-     * @param vromIdOrUri — e.g. `'hf-transformers-docs'` or `'hub://hf-ml-training'`
+     * If the required embedding model is already loaded from a previous mount,
+     * model reload is skipped entirely (hot-swap).
+     *
+     * @param vromIdOrUri - vROM identifier, e.g. `'hf-transformers-docs'` or `'hub://hf-ml-training'`
+     * @param options - Mount options (progress callback, force download)
+     * @returns Current state after mounting
+     *
+     * @throws `'Call init() first'` — if {@link init} hasn't been called
+     * @throws `'vROM \'...\' not found in registry'` — if the ID doesn't exist
+     * @throws Network errors during CDN download
+     *
+     * @see {@link unmount} to free the HNSW graph
+     * @see {@link getMountStatus} to inspect the current state
+     *
+     * @example
+     * ```ts
+     * const status = await memory.mount('hf-transformers-docs', {
+     *   onProgress: ({ phase, loaded, total }) => {
+     *     if (phase === 'index' && total > 0)
+     *       console.log(`${(loaded / total * 100).toFixed(0)}%`);
+     *   },
+     * });
+     * console.log(`${status.vectors} vectors ready`);
+     * ```
      */
     async mount(vromIdOrUri: string, options: MountOptions = {}): Promise<MountStatus> {
         if (!this.#initialized) throw new Error('Call init() first');
@@ -226,7 +270,15 @@ export class AgentMemory {
         return this.getMountStatus();
     }
 
-    /** Unmount the current vROM. Frees HNSW graph but keeps OPFS cache. */
+    /**
+     * Unmount the current vROM. Frees the HNSW graph from WASM memory
+     * but preserves the OPFS cache (so re-mounting is instant).
+     *
+     * The embedding model remains loaded in the worker.
+     * After unmounting, {@link search} will throw until a new vROM is mounted.
+     *
+     * @see {@link evict} to also remove from cache
+     */
     unmount(): void {
         if (this.#db) { try { this.#db.free(); } catch {} }
         this.#db = null;
@@ -237,8 +289,26 @@ export class AgentMemory {
     }
 
     /**
-     * Search the mounted vROM.
-     * @param query — Natural language query string
+     * Search the mounted vROM with a natural language query.
+     *
+     * The query is embedded in the background worker (~50ms), then
+     * HNSW approximate nearest neighbor search runs in WASM (<1ms).
+     *
+     * @param query - Natural language search query
+     * @param options - Search configuration (topK, context expansion, efSearch)
+     * @returns Results sorted by distance ascending (lower = more similar)
+     *
+     * @throws `'No vROM mounted — call mount() first'`
+     * @throws `'Embedding model not loaded'`
+     *
+     * @example
+     * ```ts
+     * const results = await memory.search('how to fine-tune', {
+     *   topK: 5,
+     *   expandContext: true,
+     *   contextWindow: 1,
+     * });
+     * ```
      */
     async search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
         if (!this.#db) throw new Error('No vROM mounted — call mount() first');
@@ -296,6 +366,21 @@ export class AgentMemory {
 
     /**
      * Format search results as a context string for LLM prompt injection.
+     *
+     * Concatenates result texts separated by `---` markers. Optionally includes
+     * source URLs and respects an approximate token budget.
+     *
+     * @param results - Search results from {@link search}
+     * @param options - Formatting options (sources, token budget)
+     * @returns Formatted context string ready for LLM system/user prompt
+     *
+     * @example
+     * ```ts
+     * const context = memory.formatContext(results, {
+     *   maxTokens: 2000,
+     *   includeSources: true,
+     * });
+     * ```
      */
     formatContext(results: SearchResult[], options: FormatContextOptions = {}): string {
         const includeSources = options.includeSources !== false;
@@ -318,6 +403,12 @@ export class AgentMemory {
 
     // ─── Queries ───────────────────────────────────────────────────────
 
+    /**
+     * Get a snapshot of the current mount state.
+     *
+     * @returns A plain object describing the active vROM, model, and readiness.
+     * The returned object is not live — it reflects the state at call time.
+     */
     getMountStatus(): MountStatus {
         return {
             activeVrom: this.#activeVromId,
@@ -329,33 +420,88 @@ export class AgentMemory {
         };
     }
 
+    /**
+     * Whether the SDK is fully ready: initialized, vROM mounted, and model loaded.
+     *
+     * @remarks Equivalent to `getMountStatus().ready` after `init()`.
+     */
     get isReady(): boolean {
         return this.#initialized && !!this.#db && this.#modelReady;
     }
 
+    /**
+     * List all available vROMs from the registry.
+     *
+     * Fetches the registry from CDN on first call, then caches in OPFS for 1 hour.
+     *
+     * @returns Array of registry entries with IDs, sizes, model requirements, and CDN URLs
+     */
     async listVroms(): Promise<VromRegistryEntry[]> {
         return this.#cache.list();
     }
 
+    /**
+     * Check whether a vROM is cached locally in OPFS.
+     *
+     * @param vromId - vROM identifier
+     * @returns `true` if the index file exists in OPFS
+     */
     async isCached(vromId: string): Promise<boolean> {
         return this.#cache.isCached(vromId);
     }
 
+    /**
+     * Evict a vROM from the OPFS cache.
+     *
+     * Deletes all cached files (manifest + index) for the given vROM.
+     * Does not affect the currently mounted vROM — call {@link unmount} first
+     * if evicting the active one.
+     *
+     * @param vromId - vROM identifier to evict
+     */
     async evict(vromId: string): Promise<void> {
         await this.#cache.evict(vromId);
         this.#log('info', `Evicted: ${vromId}`);
     }
 
+    /**
+     * Get the browser's storage usage estimate.
+     *
+     * @returns Used and quota bytes for the current origin
+     */
     async storageEstimate(): Promise<StorageEstimate> {
         return this.#cache.storageEstimate();
     }
 
-    /** Set a progress callback for model/vROM downloads (for UI binding). */
+    /**
+     * Set a global progress callback for embedding model downloads.
+     *
+     * This is separate from the per-mount `onProgress` callback (which tracks
+     * vROM index downloads). This callback fires when the background worker
+     * downloads ONNX model weight files.
+     *
+     * @param fn - Progress callback, or `null` to remove
+     *
+     * @example
+     * ```ts
+     * memory.onProgress(({ file, loaded, total }) => {
+     *   console.log(`${file}: ${(loaded / total * 100).toFixed(0)}%`);
+     * });
+     * ```
+     */
     onProgress(fn: ((p: { file: string; loaded: number; total: number }) => void) | null): void {
         this._onProgress = fn ?? undefined;
     }
 
-    /** Destroy the instance. Frees WASM + terminates worker. */
+    /**
+     * Destroy the SDK instance. Frees the WASM HNSW graph and terminates
+     * the background embedding worker.
+     *
+     * The OPFS cache is **not** cleared — cached vROMs persist for future sessions.
+     * After calling `destroy()`, the instance cannot be reused.
+     *
+     * @see {@link evict} to clear specific vROMs from cache
+     */
     destroy(): void {
         if (this.#db) { try { this.#db.free(); } catch {} }
         if (this.#worker) this.#worker.terminate();
