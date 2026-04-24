@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VecDB-WASM — Vector Search Engine</title>
+    <title>VecDB-WASM — Vector Search Engine + vROM Hub</title>
     <style>
         :root {
             --bg: #0f1117;
@@ -17,6 +17,7 @@
             --green: #4ade80;
             --yellow: #fbbf24;
             --blue: #60a5fa;
+            --orange: #fb923c;
             --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
             --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
@@ -60,6 +61,39 @@
             border: 1px solid var(--green);
             color: var(--green);
         }
+
+        /* ─── Top Navigation ─── */
+        .top-nav {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            padding: 0 2rem;
+            gap: 0;
+            overflow-x: auto;
+        }
+
+        .top-nav button {
+            background: transparent;
+            color: var(--text-dim);
+            border: none;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .top-nav button:hover { color: var(--text); }
+        .top-nav button.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .page-panel { display: none; }
+        .page-panel.active { display: block; }
 
         .container {
             max-width: 1200px;
@@ -129,7 +163,6 @@
         }
 
         .form-row > div { flex: 1; }
-
         .form-group { margin-bottom: 0.75rem; }
 
         button {
@@ -146,15 +179,9 @@
 
         button:hover { opacity: 0.85; }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        button.secondary {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-        }
-
-        button.danger {
-            background: var(--accent2);
-        }
+        button.secondary { background: var(--surface2); border: 1px solid var(--border); }
+        button.danger { background: var(--accent2); }
+        button.success { background: #059669; }
 
         .btn-row {
             display: flex;
@@ -233,33 +260,12 @@
             font-family: var(--mono);
         }
 
-        .results-list .result-content {
-            flex: 1;
-            min-width: 0;
-        }
+        .results-list .result-content { flex: 1; min-width: 0; }
+        .results-list .result-text { color: var(--text); word-break: break-word; margin-bottom: 0.2rem; }
+        .results-list .result-meta { color: var(--text-dim); font-size: 0.7rem; font-family: var(--mono); }
+        .results-list .dist { color: var(--yellow); white-space: nowrap; font-family: var(--mono); font-size: 0.75rem; }
 
-        .results-list .result-text {
-            color: var(--text);
-            word-break: break-word;
-            margin-bottom: 0.2rem;
-        }
-
-        .results-list .result-meta {
-            color: var(--text-dim);
-            font-size: 0.7rem;
-            font-family: var(--mono);
-        }
-
-        .results-list .dist {
-            color: var(--yellow);
-            white-space: nowrap;
-            font-family: var(--mono);
-            font-size: 0.75rem;
-        }
-
-        .full-width {
-            grid-column: 1 / -1;
-        }
+        .full-width { grid-column: 1 / -1; }
 
         .perf-bar, .progress-bar-container {
             height: 6px;
@@ -359,20 +365,6 @@
         .tab-panel { display: none; }
         .tab-panel.active { display: block; }
 
-        .text-chip {
-            display: inline-block;
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 0.25rem 0.5rem;
-            font-size: 0.75rem;
-            margin: 0.15rem;
-            max-width: 300px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
         .opfs-indicator {
             font-size: 0.7rem;
             color: var(--text-dim);
@@ -381,6 +373,153 @@
         .opfs-indicator.saved { color: var(--green); }
         .opfs-indicator.saving { color: var(--yellow); }
         .opfs-indicator.error { color: var(--accent2); }
+
+        /* ─── vROM Hub Cards ─── */
+        .vrom-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .vrom-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: border-color 0.2s;
+            position: relative;
+        }
+
+        .vrom-card:hover { border-color: var(--accent); }
+
+        .vrom-card .vrom-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: var(--accent);
+            color: white;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .vrom-card .vrom-badge.community { background: var(--orange); }
+
+        .vrom-card h3 {
+            font-size: 1.05rem;
+            margin-bottom: 0.5rem;
+            padding-right: 70px;
+        }
+
+        .vrom-card .vrom-desc {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-bottom: 0.75rem;
+            line-height: 1.5;
+        }
+
+        .vrom-card .vrom-stats {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            font-family: var(--mono);
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .vrom-card .vrom-stats span { white-space: nowrap; }
+        .vrom-card .vrom-stats .val { color: var(--blue); }
+
+        .vrom-card .vrom-tags {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.75rem;
+        }
+
+        .vrom-card .vrom-tag {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.1rem 0.4rem;
+            font-size: 0.65rem;
+            color: var(--text-dim);
+        }
+
+        .vrom-card .btn-row { margin-top: 0.5rem; }
+
+        /* ─── vROM Builder ─── */
+        .builder-step {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .builder-step h3 {
+            font-size: 0.95rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .builder-step h3 .step-num {
+            background: var(--accent);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .chunk-preview {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+        }
+
+        .chunk-item {
+            padding: 0.4rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 0.5rem;
+        }
+        .chunk-item:last-child { border-bottom: none; }
+        .chunk-item .chunk-id { color: var(--accent); font-family: var(--mono); font-size: 0.7rem; min-width: 2.5rem; }
+        .chunk-item .chunk-heading { color: var(--yellow); font-size: 0.7rem; min-width: 100px; }
+        .chunk-item .chunk-text { color: var(--text-dim); font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .vrom-loaded-banner {
+            background: linear-gradient(135deg, rgba(108, 99, 255, 0.1), rgba(96, 165, 250, 0.1));
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .vrom-loaded-banner .vrom-info { flex: 1; }
+        .vrom-loaded-banner h3 { font-size: 1rem; margin-bottom: 0.25rem; }
+        .vrom-loaded-banner .meta { font-size: 0.75rem; color: var(--text-dim); font-family: var(--mono); }
     </style>
 </head>
 <body>
@@ -391,6 +530,12 @@
         <span class="badge" id="opfsStatus">⏳ Storage</span>
     </header>
 
+    <nav class="top-nav" id="topNav">
+        <button class="active" data-page="engine">🔍 Engine</button>
+        <button data-page="vromHub">🧩 vROM Hub</button>
+        <button data-page="vromBuilder">🔨 vROM Builder</button>
+    </nav>
+
     <div id="loading">
         <div class="spinner"></div>
         <p style="margin-top:1rem" id="loadingText">Loading WASM module...</p>
@@ -399,270 +544,230 @@
         </div>
     </div>
 
-    <div class="container hidden" id="app">
-        <!-- Stats row -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="value" id="statVectors">0</div>
-                <div class="label">Vectors</div>
-            </div>
-            <div class="stat-card">
-                <div class="value" id="statDim">-</div>
-                <div class="label">Dimensions</div>
-            </div>
-            <div class="stat-card">
-                <div class="value" id="statMemory">0 B</div>
-                <div class="label">Index Memory</div>
-            </div>
-            <div class="stat-card">
-                <div class="value" id="statStorage">-</div>
-                <div class="label">OPFS Storage</div>
-            </div>
-        </div>
-
-        <div class="grid">
-            <!-- Embedding Model -->
-            <div class="card">
-                <h2><span class="icon">🧠</span> Embedding Model</h2>
-                <div class="model-status" id="embedModelStatus">
-                    <span class="dot" id="modelDot"></span>
-                    <span id="modelStatusText">Not loaded</span>
-                </div>
-                <div class="form-row">
-                    <div>
-                        <label>Model</label>
-                        <select id="modelSelect">
-                            <option value="Xenova/all-MiniLM-L6-v2" data-dim="384" selected>all-MiniLM-L6-v2 (22MB, 384d)</option>
-                            <option value="Xenova/bge-small-en-v1.5" data-dim="384">bge-small-en-v1.5 (33MB, 384d)</option>
-                            <option value="Xenova/gte-small" data-dim="384">gte-small (33MB, 384d)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Quantization</label>
-                        <select id="modelDtype">
-                            <option value="q8" selected>q8 (smallest)</option>
-                            <option value="fp32">fp32 (full precision)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="progress-bar-container" id="modelLoadProgress" style="display:none">
-                    <div class="fill" id="modelLoadFill" style="width:0%"></div>
-                </div>
-                <div class="btn-row">
-                    <button id="btnLoadModel">Load Model</button>
-                    <button class="secondary" id="btnUnloadModel" disabled>Unload</button>
-                </div>
+    <!-- ═══ PAGE 1: ENGINE ═══ -->
+    <div class="page-panel active" id="page-engine">
+        <div class="container hidden" id="app">
+            <div class="stats-grid">
+                <div class="stat-card"><div class="value" id="statVectors">0</div><div class="label">Vectors</div></div>
+                <div class="stat-card"><div class="value" id="statDim">-</div><div class="label">Dimensions</div></div>
+                <div class="stat-card"><div class="value" id="statMemory">0 B</div><div class="label">Index Memory</div></div>
+                <div class="stat-card"><div class="value" id="statStorage">-</div><div class="label">OPFS Storage</div></div>
             </div>
 
-            <!-- Index Config -->
-            <div class="card">
-                <h2><span class="icon">⚙️</span> Index Configuration</h2>
-                <div class="form-row">
-                    <div>
-                        <label>Metric</label>
-                        <select id="cfgMetric">
-                            <option value="cosine" selected>Cosine</option>
-                            <option value="euclidean">Euclidean (L2)</option>
-                            <option value="dot_product">Dot Product</option>
-                        </select>
+            <div class="grid">
+                <div class="card">
+                    <h2><span class="icon">🧠</span> Embedding Model</h2>
+                    <div class="model-status" id="embedModelStatus">
+                        <span class="dot" id="modelDot"></span>
+                        <span id="modelStatusText">Not loaded</span>
                     </div>
-                    <div>
-                        <label>M (connections)</label>
-                        <input type="number" id="cfgM" value="16" min="4" max="64">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div>
-                        <label>efConstruction</label>
-                        <input type="number" id="cfgEfConst" value="128" min="16" max="512">
-                    </div>
-                    <div>
-                        <label>efSearch</label>
-                        <input type="number" id="cfgEfSearch" value="40" min="1" max="512">
-                    </div>
-                </div>
-                <div class="btn-row">
-                    <button id="btnCreate">New Index</button>
-                    <button class="secondary" id="btnExport">📤 Export</button>
-                    <button class="secondary" id="btnImport">📥 Import</button>
-                    <button class="danger" id="btnReset">🗑️ Reset All</button>
-                </div>
-                <div class="opfs-indicator" id="opfsIndicator">OPFS: checking...</div>
-            </div>
-
-            <!-- Insert Data -->
-            <div class="card full-width">
-                <h2><span class="icon">📥</span> Index Data</h2>
-                <div class="tab-bar">
-                    <button class="active" data-tab="datasetInsert">🤗 HF Datasets</button>
-                    <button data-tab="textInsert">📝 Text</button>
-                    <button data-tab="vectorInsert">🔢 Vectors</button>
-                    <button data-tab="bulkInsert">📄 Bulk Text</button>
-                </div>
-
-                <div class="tab-panel active" id="tab-datasetInsert">
-                    <div class="form-group">
-                        <label>Choose a demo dataset from the Hugging Face Hub</label>
-                        <select id="datasetSelect">
-                            <option value="" disabled selected>— Select a dataset —</option>
-                            <option value="ag_news" data-dataset="fancyzhx/ag_news" data-config="default" data-split="train" data-col="text" data-label="label" data-labels="World,Sports,Business,Sci/Tech" data-desc="News articles (4 categories: World, Sports, Business, Sci/Tech)">📰 AG News — 120K news articles</option>
-                            <option value="rotten_tomatoes" data-dataset="cornell-movie-review-data/rotten_tomatoes" data-config="default" data-split="train" data-col="text" data-label="label" data-labels="neg,pos" data-desc="Movie reviews (positive/negative sentiment)">🎬 Rotten Tomatoes — 10K movie reviews</option>
-                            <option value="tweet_sentiment" data-dataset="cardiffnlp/tweet_eval" data-config="sentiment" data-split="train" data-col="text" data-label="label" data-labels="negative,neutral,positive" data-desc="Tweets with sentiment labels">🐦 Tweet Sentiment — 45K tweets</option>
-                            <option value="tweet_emotion" data-dataset="cardiffnlp/tweet_eval" data-config="emotion" data-split="train" data-col="text" data-label="label" data-labels="anger,joy,optimism,sadness" data-desc="Tweets with emotion labels">😀 Tweet Emotions — 3.2K tweets</option>
-                        </select>
-                    </div>
-                    <div id="datasetDesc" style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.75rem;display:none"></div>
                     <div class="form-row">
                         <div>
-                            <label>Rows to load (max 500)</label>
-                            <input type="number" id="datasetRows" value="200" min="10" max="500">
+                            <label>Model</label>
+                            <select id="modelSelect">
+                                <option value="Xenova/all-MiniLM-L6-v2" data-dim="384" selected>all-MiniLM-L6-v2 (22MB, 384d)</option>
+                                <option value="Xenova/bge-small-en-v1.5" data-dim="384">bge-small-en-v1.5 (33MB, 384d)</option>
+                                <option value="Xenova/gte-small" data-dim="384">gte-small (33MB, 384d)</option>
+                            </select>
                         </div>
                         <div>
-                            <label>Random offset</label>
-                            <select id="datasetOffset">
-                                <option value="0" selected>From start</option>
-                                <option value="random">Random slice</option>
+                            <label>Quantization</label>
+                            <select id="modelDtype">
+                                <option value="q8" selected>q8 (smallest)</option>
+                                <option value="fp32">fp32 (full precision)</option>
                             </select>
                         </div>
                     </div>
-                    <div class="progress-bar-container" id="datasetProgress" style="display:none">
-                        <div class="fill" id="datasetProgressFill" style="width:0%"></div>
+                    <div class="progress-bar-container" id="modelLoadProgress" style="display:none">
+                        <div class="fill" id="modelLoadFill" style="width:0%"></div>
                     </div>
-                    <div id="datasetStatusText" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.35rem;display:none"></div>
                     <div class="btn-row">
-                        <button id="btnLoadDataset" disabled>Load &amp; Index Dataset</button>
-                    </div>
-                    <div style="font-size:0.7rem;color:var(--text-dim);margin-top:0.75rem">
-                        Data is fetched directly from the <a href="https://huggingface.co/docs/dataset-viewer" target="_blank" style="color:var(--blue)">HF Dataset Viewer API</a> — no server needed. Rows are embedded with the loaded model and indexed into the HNSW index.
+                        <button id="btnLoadModel">Load Model</button>
+                        <button class="secondary" id="btnUnloadModel" disabled>Unload</button>
                     </div>
                 </div>
 
-                <div class="tab-panel" id="tab-textInsert">
-                    <div class="form-group">
-                        <label>Text to index (embedding model will convert to vector)</label>
-                        <textarea id="textInput" placeholder="The quick brown fox jumps over the lazy dog."></textarea>
-                    </div>
-                    <div class="btn-row">
-                        <button id="btnIndexText">Index Text</button>
-                    </div>
-                </div>
-
-                <div class="tab-panel" id="tab-vectorInsert">
+                <div class="card">
+                    <h2><span class="icon">⚙️</span> Index Configuration</h2>
                     <div class="form-row">
-                        <div>
-                            <label>Random vectors to insert</label>
-                            <input type="number" id="insertCount" value="1000" min="1" max="100000">
-                        </div>
-                        <div>
-                            <label>Metadata (optional)</label>
-                            <input type="text" id="insertMeta" placeholder='{"label": "example"}'>
-                        </div>
+                        <div><label>Metric</label><select id="cfgMetric"><option value="cosine" selected>Cosine</option><option value="euclidean">Euclidean (L2)</option><option value="dot_product">Dot Product</option></select></div>
+                        <div><label>M (connections)</label><input type="number" id="cfgM" value="16" min="4" max="64"></div>
                     </div>
-                    <div class="form-group">
-                        <label>Or paste a vector (comma-separated)</label>
-                        <textarea id="insertManual" placeholder="0.1, 0.2, 0.3, ..."></textarea>
+                    <div class="form-row">
+                        <div><label>efConstruction</label><input type="number" id="cfgEfConst" value="128" min="16" max="512"></div>
+                        <div><label>efSearch</label><input type="number" id="cfgEfSearch" value="40" min="1" max="512"></div>
                     </div>
                     <div class="btn-row">
-                        <button id="btnInsertRandom">Insert Random</button>
-                        <button class="secondary" id="btnInsertManual">Insert Manual</button>
+                        <button id="btnCreate">New Index</button>
+                        <button class="secondary" id="btnExport">📤 Export</button>
+                        <button class="secondary" id="btnImport">📥 Import</button>
+                        <button class="danger" id="btnReset">🗑️ Reset All</button>
+                    </div>
+                    <div class="opfs-indicator" id="opfsIndicator">OPFS: checking...</div>
+                </div>
+
+                <div class="card full-width">
+                    <h2><span class="icon">📥</span> Index Data</h2>
+                    <div class="tab-bar">
+                        <button class="active" data-tab="datasetInsert">🤗 HF Datasets</button>
+                        <button data-tab="textInsert">📝 Text</button>
+                        <button data-tab="vectorInsert">🔢 Vectors</button>
+                        <button data-tab="bulkInsert">📄 Bulk Text</button>
+                    </div>
+                    <div class="tab-panel active" id="tab-datasetInsert">
+                        <div class="form-group"><label>Choose a demo dataset</label><select id="datasetSelect"><option value="" disabled selected>— Select a dataset —</option><option value="ag_news" data-dataset="fancyzhx/ag_news" data-config="default" data-split="train" data-col="text" data-label="label" data-labels="World,Sports,Business,Sci/Tech" data-desc="News articles (4 categories)">📰 AG News — 120K news articles</option><option value="rotten_tomatoes" data-dataset="cornell-movie-review-data/rotten_tomatoes" data-config="default" data-split="train" data-col="text" data-label="label" data-labels="neg,pos" data-desc="Movie reviews (sentiment)">🎬 Rotten Tomatoes — 10K movie reviews</option><option value="tweet_sentiment" data-dataset="cardiffnlp/tweet_eval" data-config="sentiment" data-split="train" data-col="text" data-label="label" data-labels="negative,neutral,positive" data-desc="Tweets with sentiment">🐦 Tweet Sentiment — 45K tweets</option><option value="tweet_emotion" data-dataset="cardiffnlp/tweet_eval" data-config="emotion" data-split="train" data-col="text" data-label="label" data-labels="anger,joy,optimism,sadness" data-desc="Tweets with emotions">😀 Tweet Emotions — 3.2K tweets</option></select></div>
+                        <div id="datasetDesc" style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.75rem;display:none"></div>
+                        <div class="form-row"><div><label>Rows (max 500)</label><input type="number" id="datasetRows" value="200" min="10" max="500"></div><div><label>Offset</label><select id="datasetOffset"><option value="0" selected>From start</option><option value="random">Random slice</option></select></div></div>
+                        <div class="progress-bar-container" id="datasetProgress" style="display:none"><div class="fill" id="datasetProgressFill" style="width:0%"></div></div>
+                        <div id="datasetStatusText" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.35rem;display:none"></div>
+                        <div class="btn-row"><button id="btnLoadDataset" disabled>Load &amp; Index Dataset</button></div>
+                    </div>
+                    <div class="tab-panel" id="tab-textInsert">
+                        <div class="form-group"><label>Text to index</label><textarea id="textInput" placeholder="The quick brown fox jumps over the lazy dog."></textarea></div>
+                        <div class="btn-row"><button id="btnIndexText">Index Text</button></div>
+                    </div>
+                    <div class="tab-panel" id="tab-vectorInsert">
+                        <div class="form-row"><div><label>Random vectors</label><input type="number" id="insertCount" value="1000" min="1" max="100000"></div><div><label>Metadata</label><input type="text" id="insertMeta" placeholder='{"label": "example"}'></div></div>
+                        <div class="form-group"><label>Or paste a vector</label><textarea id="insertManual" placeholder="0.1, 0.2, 0.3, ..."></textarea></div>
+                        <div class="btn-row"><button id="btnInsertRandom">Insert Random</button><button class="secondary" id="btnInsertManual">Insert Manual</button></div>
+                    </div>
+                    <div class="tab-panel" id="tab-bulkInsert">
+                        <div class="form-group"><label>Lines of text (one per line)</label><textarea id="bulkTextInput" rows="8" placeholder="Line 1: The quick brown fox&#10;Line 2: Machine learning is fascinating&#10;..."></textarea></div>
+                        <div class="btn-row"><button id="btnBulkIndex">Index All Lines</button></div>
                     </div>
                 </div>
 
-                <div class="tab-panel" id="tab-bulkInsert">
-                    <div class="form-group">
-                        <label>Paste multiple lines of text (one per line — each line becomes a vector)</label>
-                        <textarea id="bulkTextInput" rows="8" placeholder="Line 1: The quick brown fox&#10;Line 2: Machine learning is fascinating&#10;Line 3: WebAssembly enables high-performance web apps&#10;..."></textarea>
+                <div class="card full-width">
+                    <h2><span class="icon">🔎</span> Search</h2>
+                    <div class="tab-bar">
+                        <button class="active" data-tab="textSearch">📝 Text Search</button>
+                        <button data-tab="vectorSearch">🔢 Vector Search</button>
                     </div>
-                    <div class="btn-row">
-                        <button id="btnBulkIndex">Index All Lines</button>
+                    <div class="tab-panel active" id="tab-textSearch">
+                        <div class="form-row"><div style="flex:3"><label>Search query</label><input type="text" id="textSearchQuery" placeholder="Type a question or phrase..."></div><div><label>k</label><input type="number" id="textSearchK" value="5" min="1" max="100"></div></div>
+                        <div class="btn-row"><button id="btnTextSearch">Search</button></div>
                     </div>
+                    <div class="tab-panel" id="tab-vectorSearch">
+                        <div class="form-row"><div><label>k</label><input type="number" id="searchK" value="10" min="1" max="100"></div><div><label>efSearch</label><input type="number" id="searchEf" value="40" min="1" max="512"></div></div>
+                        <div class="form-group"><label>Query vector (empty = random)</label><textarea id="searchQuery" placeholder="0.1, 0.2, 0.3, ..."></textarea></div>
+                        <div class="btn-row"><button id="btnSearch">Search</button><button class="secondary" id="btnBenchmark">⏱️ Benchmark (100 queries)</button></div>
+                    </div>
+                    <div class="perf-bar" id="perfBar" style="display:none"><div class="fill" id="perfFill"></div></div>
+                    <ul class="results-list" id="results" style="margin-top:0.75rem"></ul>
+                </div>
+
+                <div class="card full-width">
+                    <h2><span class="icon">📋</span> Event Log</h2>
+                    <div class="log" id="log"></div>
+                </div>
+
+                <div class="card full-width">
+                    <h2><span class="icon">🏗️</span> Architecture</h2>
+                    <div class="architecture-diagram">
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                          VecDB-WASM v3 + vROM Architecture                               │
+├──────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                          │
+│   ┌──────────────────┐    ┌───────────────────────┐    ┌───────────────────────────────┐ │
+│   │   Raw Text Input │───▶│  Embedding Model       │───▶│  HNSW Vector Index            │ │
+│   │  "Hello world"   │    │  transformers.js        │    │  (Rust → WASM, 172KB)        │ │
+│   │                  │    │  all-MiniLM-L6-v2      │    │                               │ │
+│   │  • Single text   │    │  • 384-dim vectors     │    │  • Cosine/L2/DotProduct       │ │
+│   │  • Bulk lines    │    │  • q8 quantized        │    │  • M=16, efC=128              │ │
+│   │  • Text search   │    │  • ~22MB ONNX model    │    │  • Sub-ms search              │ │
+│   └──────────────────┘    └───────────────────────┘    └──────────────┬────────────────┘ │
+│                                                                       │                  │
+│   ┌───────────────────────────────────────────────────────────────────────────────────┐  │
+│   │  💾 OPFS (Origin Private File System) — auto-save/restore · crash-safe            │  │
+│   └───────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                          │
+│   ┌───────────────────────────────────────────────────────────────────────────────────┐  │
+│   │  🧩 vROM Hub — Pre-computed HNSW indexes from Hugging Face Hub                    │  │
+│   │  • One-click load: fetch → VectorDB.load(json) → instant RAG                      │  │
+│   │  • Linked-list chunk traversal (prev/next) for context expansion                  │  │
+│   │  • Browser-native builder: chunk → embed → build HNSW → download                  │  │
+│   └───────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                          │
+│   100% client-side · Zero server dependencies · Works offline after first load           │
+└──────────────────────────────────────────────────────────────────────────────────────────┘</div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- Search -->
-            <div class="card full-width">
-                <h2><span class="icon">🔎</span> Search</h2>
-                <div class="tab-bar">
-                    <button class="active" data-tab="textSearch">📝 Text Search</button>
-                    <button data-tab="vectorSearch">🔢 Vector Search</button>
-                </div>
-
-                <div class="tab-panel active" id="tab-textSearch">
-                    <div class="form-row">
-                        <div style="flex:3">
-                            <label>Search query (natural language)</label>
-                            <input type="text" id="textSearchQuery" placeholder="Type a question or phrase to find similar content...">
-                        </div>
-                        <div>
-                            <label>k (results)</label>
-                            <input type="number" id="textSearchK" value="5" min="1" max="100">
-                        </div>
-                    </div>
-                    <div class="btn-row">
-                        <button id="btnTextSearch">Search</button>
-                    </div>
-                </div>
-
-                <div class="tab-panel" id="tab-vectorSearch">
-                    <div class="form-row">
-                        <div>
-                            <label>k (neighbors)</label>
-                            <input type="number" id="searchK" value="10" min="1" max="100">
-                        </div>
-                        <div>
-                            <label>efSearch override</label>
-                            <input type="number" id="searchEf" value="40" min="1" max="512">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Query vector (leave empty for random)</label>
-                        <textarea id="searchQuery" placeholder="0.1, 0.2, 0.3, ..."></textarea>
-                    </div>
-                    <div class="btn-row">
-                        <button id="btnSearch">Search</button>
-                        <button class="secondary" id="btnBenchmark">⏱️ Benchmark (100 queries)</button>
-                    </div>
-                </div>
-
-                <div class="perf-bar" id="perfBar" style="display:none">
-                    <div class="fill" id="perfFill"></div>
-                </div>
-                <ul class="results-list" id="results" style="margin-top:0.75rem"></ul>
+    <!-- ═══ PAGE 2: vROM HUB ═══ -->
+    <div class="page-panel" id="page-vromHub">
+        <div class="container">
+            <div style="margin-bottom:1.5rem">
+                <h2 style="font-size:1.5rem;margin-bottom:0.5rem">🧩 vROM Hub</h2>
+                <p style="color:var(--text-dim);font-size:0.9rem">Pre-computed HNSW index packages — plug-and-play RAG cartridges for VecDB-WASM.<br>Load a vROM to instantly search documentation without embedding anything locally.</p>
             </div>
-
-            <!-- Log -->
-            <div class="card full-width">
-                <h2><span class="icon">📋</span> Event Log</h2>
-                <div class="log" id="log"></div>
+            <div class="vrom-loaded-banner hidden" id="vromLoadedBanner">
+                <div class="vrom-info"><h3 id="vromLoadedName">—</h3><div class="meta" id="vromLoadedMeta">—</div></div>
+                <div class="btn-row" style="margin-top:0"><button id="btnVromSearch" style="background:var(--green);color:var(--bg)">🔎 Search vROM</button><button class="secondary" id="btnVromUnload">Unload</button></div>
             </div>
+            <div class="card hidden" id="vromSearchCard" style="margin-bottom:1.5rem">
+                <h2><span class="icon">🔎</span> Search Loaded vROM</h2>
+                <div class="form-row"><div style="flex:3"><label>Search query</label><input type="text" id="vromSearchQuery" placeholder="e.g. how to fine-tune a model with LoRA"></div><div><label>k</label><input type="number" id="vromSearchK" value="5" min="1" max="20"></div></div>
+                <div class="form-row"><div><label>Context expansion (chunks before/after)</label><input type="number" id="vromExpandWindow" value="1" min="0" max="5"></div><div style="flex:2"><label>&nbsp;</label><button id="btnVromDoSearch" style="width:100%">Search</button></div></div>
+                <ul class="results-list" id="vromResults" style="margin-top:0.75rem"></ul>
+            </div>
+            <h3 style="font-size:1rem;margin-bottom:0.5rem;color:var(--text-dim)">📦 Official vROMs</h3>
+            <div class="vrom-grid" id="vromOfficialGrid"></div>
+            <h3 style="font-size:1rem;margin-top:2rem;margin-bottom:0.5rem;color:var(--text-dim)">🌐 Community vROMs</h3>
+            <div style="color:var(--text-dim);font-size:0.85rem;padding:2rem;text-align:center;background:var(--surface);border-radius:12px;border:1px dashed var(--border)">Coming soon — publish your own vROMs to the Hub!<br><span style="font-size:0.75rem">Use the vROM Builder tab or <code style="background:var(--surface2);padding:0.15rem 0.35rem;border-radius:4px">tools/vrom_builder.py</code></span></div>
+        </div>
+    </div>
 
-            <!-- Architecture -->
-            <div class="card full-width">
-                <h2><span class="icon">🏗️</span> Architecture</h2>
-                <div class="architecture-diagram">
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                        VecDB-WASM v2 Architecture                                   │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                     │
-│   ┌──────────────────┐    ┌──────────────────────┐    ┌──────────────────────────┐  │
-│   │   Raw Text Input │───▶│  Embedding Model      │───▶│  HNSW Vector Index       │  │
-│   │  "Hello world"   │    │  transformers.js       │    │  (Rust → WASM, 172KB)   │  │
-│   │                  │    │  all-MiniLM-L6-v2     │    │                          │  │
-│   │  • Single text   │    │  • 384-dim vectors    │    │  • Cosine/L2/DotProduct  │  │
-│   │  • Bulk lines    │    │  • q8 quantized       │    │  • M=16, efC=128         │  │
-│   │  • Text search   │    │  • ~22MB ONNX model   │    │  • Sub-ms search         │  │
-│   └──────────────────┘    └──────────────────────┘    └────────────┬─────────────┘  │
-│                                                                    │                │
-│   ┌──────────────────────────────────────────────────────────────────────────────┐  │
-│   │                  OPFS (Origin Private File System)                            │  │
-│   │  • Auto-save after every mutation                                            │  │
-│   │  • Auto-restore on page load                                                 │  │
-│   │  • Atomic writes (crash-safe)                                                │  │
-│   │  • Persists: index + all text metadata                                       │  │
-│   └──────────────────────────────────────────────────────────────────────────────┘  │
-│                                                                                     │
-│   100% client-side · Zero server dependencies · Works offline after first load      │
-└─────────────────────────────────────────────────────────────────────────────────────┘</div>
+    <!-- ═══ PAGE 3: vROM BUILDER ═══ -->
+    <div class="page-panel" id="page-vromBuilder">
+        <div class="container">
+            <div style="margin-bottom:1.5rem">
+                <h2 style="font-size:1.5rem;margin-bottom:0.5rem">🔨 vROM Builder</h2>
+                <p style="color:var(--text-dim);font-size:0.9rem">Create vROM packages directly in your browser. Paste text, upload markdown, or fetch HF docs — the builder will chunk, embed, and package an HNSW index.</p>
+            </div>
+            <div class="builder-step">
+                <h3><span class="step-num">1</span> Add Source Content</h3>
+                <div class="tab-bar"><button class="active" data-tab="builderPaste">📝 Paste Text</button><button data-tab="builderHfDocs">🤗 HF Docs URL</button></div>
+                <div class="tab-panel active" id="tab-builderPaste">
+                    <div class="form-group"><label>Paste markdown or plain text</label><textarea id="builderTextInput" rows="10" placeholder="# My Documentation&#10;&#10;## Getting Started&#10;&#10;Paste your docs here..."></textarea></div>
+                    <div class="form-row"><div><label>Source title</label><input type="text" id="builderTitle" placeholder="My Documentation"></div><div><label>Source URL (optional)</label><input type="text" id="builderUrl" placeholder="https://example.com/docs"></div></div>
+                    <div class="btn-row"><button id="btnBuilderAddText">Add to Sources</button></div>
+                </div>
+                <div class="tab-panel" id="tab-builderHfDocs">
+                    <div class="form-group"><label>HF Docs page URL</label><input type="text" id="builderHfUrl" placeholder="https://huggingface.co/docs/transformers/quicktour"></div>
+                    <div class="btn-row"><button id="btnBuilderFetchHf">Fetch Page</button></div>
+                    <div style="font-size:0.7rem;color:var(--text-dim);margin-top:0.5rem">Fetches raw markdown from HF docs. You can add multiple pages.</div>
+                </div>
+                <div style="margin-top:0.75rem"><label>Sources added: <span id="builderSourceCount" style="color:var(--accent)">0</span></label><div id="builderSourceList" style="font-size:0.8rem;color:var(--text-dim)"></div></div>
+            </div>
+            <div class="builder-step">
+                <h3><span class="step-num">2</span> Configure</h3>
+                <div class="form-row"><div><label>vROM ID</label><input type="text" id="builderVromId" value="custom-vrom"></div><div><label>Version</label><input type="text" id="builderVersion" value="1.0.0"></div><div><label>Max chunk tokens</label><input type="number" id="builderMaxTokens" value="256" min="64" max="512"></div></div>
+                <div class="form-group"><label>Description</label><input type="text" id="builderDesc" placeholder="Pre-computed embeddings for ..."></div>
+            </div>
+            <div class="builder-step">
+                <h3><span class="step-num">3</span> Build vROM</h3>
+                <p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.75rem">Chunks sources, embeds with the loaded model, and builds an HNSW index — all in the browser. Load the model first (Engine tab).</p>
+                <div class="progress-bar-container" id="builderProgress" style="display:none"><div class="fill" id="builderProgressFill" style="width:0%"></div></div>
+                <div id="builderStatusText" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.35rem;display:none"></div>
+                <div class="btn-row"><button id="btnBuilderBuild" disabled>🔨 Build vROM</button><button class="secondary" id="btnBuilderDownload" disabled>📥 Download Package</button><button class="success" id="btnBuilderLoadInEngine" disabled>🔍 Load in Engine</button></div>
+            </div>
+            <div class="builder-step hidden" id="builderPreview">
+                <h3><span class="step-num">4</span> Preview</h3>
+                <div class="stats-grid" style="margin-bottom:0.75rem"><div class="stat-card"><div class="value" id="bpVectors">0</div><div class="label">Vectors</div></div><div class="stat-card"><div class="value" id="bpTokens">0</div><div class="label">Est. Tokens</div></div><div class="stat-card"><div class="value" id="bpSize">0</div><div class="label">Index Size</div></div><div class="stat-card"><div class="value" id="bpTime">0</div><div class="label">Build Time</div></div></div>
+                <label>Chunk Preview (first 20)</label>
+                <div class="chunk-preview" id="builderChunkPreview"></div>
+            </div>
+            <div class="card" style="margin-top:1.5rem">
+                <h2><span class="icon">🐍</span> Python CLI (for large corpora)</h2>
+                <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.75rem">For building vROMs from large documentation sets, use the Python builder in <code style="background:var(--surface2);padding:0.15rem 0.35rem;border-radius:4px">tools/vrom_builder.py</code>:</p>
+                <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem;font-family:var(--mono);font-size:0.8rem;overflow-x:auto;white-space:pre"><span style="color:var(--text-dim)"># Install dependencies</span>
+<span style="color:var(--green)">pip</span> install sentence-transformers huggingface_hub
+
+<span style="color:var(--text-dim)"># Build a vROM from HF docs pages</span>
+<span style="color:var(--green)">python</span> tools/vrom_builder.py</div>
+                <p style="font-size:0.75rem;color:var(--text-dim);margin-top:0.5rem">Same HNSW algorithm and JSON schema — output is directly loadable by <code>VectorDB.load()</code>. See <a href="https://huggingface.co/datasets/philipp-zettl/vrom-hf-docs" target="_blank" style="color:var(--blue)">vrom-hf-docs</a> for an example.</p>
             </div>
         </div>
     </div>
@@ -671,14 +776,21 @@
         import initWasm, { VectorDB } from './pkg/vecdb_wasm.js';
         import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
 
-        let db = null;
-        let embedder = null;
-        let embeddingDim = null;
-        let autoSaveTimer = null;
+        let db = null, embedder = null, embeddingDim = null, autoSaveTimer = null;
+        let vromDb = null, vromManifest = null;
+        let builderSources = [], builderResult = null;
 
-        // =====================================================================
-        // LOGGING
-        // =====================================================================
+        // ─── Top Nav ───
+        document.getElementById('topNav').querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#topNav button').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.page-panel').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(`page-${btn.dataset.page}`).classList.add('active');
+            });
+        });
+
+        // ─── Logging ───
         const logEl = document.getElementById('log');
         function log(msg, level = 'info') {
             const time = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -688,729 +800,180 @@
             logEl.prepend(entry);
         }
 
-        // =====================================================================
-        // OPFS PERSISTENCE
-        // =====================================================================
-        const OPFS_DIR = 'vecdb-wasm';
-        const OPFS_INDEX_FILE = 'hnsw-index.json';
-
-        async function getOpfsDir() {
-            const root = await navigator.storage.getDirectory();
-            return root.getDirectoryHandle(OPFS_DIR, { create: true });
-        }
-
+        // ─── OPFS ───
+        const OPFS_DIR = 'vecdb-wasm', OPFS_INDEX_FILE = 'hnsw-index.json';
+        async function getOpfsDir() { const root = await navigator.storage.getDirectory(); return root.getDirectoryHandle(OPFS_DIR, { create: true }); }
         async function opfsSave(jsonString) {
             try {
-                const dir = await getOpfsDir();
-                const fh = await dir.getFileHandle(OPFS_INDEX_FILE, { create: true });
-                const writable = await fh.createWritable();
-                try {
-                    await writable.write(jsonString);
-                    await writable.close();
-                    const sizeMB = (jsonString.length / 1e6).toFixed(1);
-                    setOpfsIndicator('saved', `OPFS: saved (${sizeMB} MB)`);
-                    updateStorageStat();
-                    return true;
-                } catch (err) {
-                    await writable.abort();
-                    throw err;
-                }
-            } catch (err) {
-                setOpfsIndicator('error', `OPFS save error: ${err.message}`);
-                console.error('OPFS save error:', err);
-                return false;
-            }
+                const dir = await getOpfsDir(); const fh = await dir.getFileHandle(OPFS_INDEX_FILE, { create: true }); const w = await fh.createWritable();
+                try { await w.write(jsonString); await w.close(); setOpfsIndicator('saved', `OPFS: saved (${(jsonString.length / 1e6).toFixed(1)} MB)`); updateStorageStat(); return true; }
+                catch (err) { await w.abort(); throw err; }
+            } catch (err) { setOpfsIndicator('error', `OPFS save error: ${err.message}`); return false; }
         }
+        async function opfsLoad() { try { const dir = await getOpfsDir(); const fh = await dir.getFileHandle(OPFS_INDEX_FILE, { create: false }); return await (await fh.getFile()).text(); } catch { return null; } }
+        async function opfsClear() { try { (await getOpfsDir()).removeEntry(OPFS_INDEX_FILE); } catch {} }
+        async function updateStorageStat() { try { const e = await navigator.storage.estimate(); const u = e.usage||0; document.getElementById('statStorage').textContent = u<1024?`${u} B`:u<1048576?`${(u/1024).toFixed(1)} KB`:`${(u/1048576).toFixed(1)} MB`; } catch { document.getElementById('statStorage').textContent='N/A'; } }
+        function setOpfsIndicator(s, t) { const el = document.getElementById('opfsIndicator'); el.className = `opfs-indicator ${s}`; el.textContent = t; }
+        function scheduleAutoSave() { if(autoSaveTimer)clearTimeout(autoSaveTimer); setOpfsIndicator('saving','OPFS: saving...'); autoSaveTimer=setTimeout(async()=>{ if(!db)return; try{const j=db.save();await opfsSave(j);log(`Auto-saved (${(j.length/1024).toFixed(0)} KB)`,'info');}catch(e){log(`Auto-save failed: ${e.message}`,'err');}},500); }
 
-        async function opfsLoad() {
-            try {
-                const dir = await getOpfsDir();
-                const fh = await dir.getFileHandle(OPFS_INDEX_FILE, { create: false });
-                const file = await fh.getFile();
-                const text = await file.text();
-                return text;
-            } catch (err) {
-                if (err.name === 'NotFoundError') return null;
-                console.error('OPFS load error:', err);
-                return null;
-            }
-        }
-
-        async function opfsClear() {
-            try {
-                const dir = await getOpfsDir();
-                await dir.removeEntry(OPFS_INDEX_FILE);
-            } catch (err) {
-                if (err.name !== 'NotFoundError') console.error('OPFS clear error:', err);
-            }
-        }
-
-        async function updateStorageStat() {
-            try {
-                const est = await navigator.storage.estimate();
-                const used = est.usage || 0;
-                const fmt = used < 1024 ? `${used} B`
-                    : used < 1048576 ? `${(used / 1024).toFixed(1)} KB`
-                    : `${(used / 1048576).toFixed(1)} MB`;
-                document.getElementById('statStorage').textContent = fmt;
-            } catch { document.getElementById('statStorage').textContent = 'N/A'; }
-        }
-
-        function setOpfsIndicator(state, text) {
-            const el = document.getElementById('opfsIndicator');
-            el.className = `opfs-indicator ${state}`;
-            el.textContent = text;
-        }
-
-        // Debounced auto-save: schedules a save 500ms after last mutation
-        function scheduleAutoSave() {
-            if (autoSaveTimer) clearTimeout(autoSaveTimer);
-            setOpfsIndicator('saving', 'OPFS: saving...');
-            autoSaveTimer = setTimeout(async () => {
-                if (!db) return;
-                try {
-                    const json = db.save();
-                    await opfsSave(json);
-                    log(`Auto-saved to OPFS (${(json.length / 1024).toFixed(0)} KB)`, 'info');
-                } catch (e) {
-                    log(`Auto-save failed: ${e.message}`, 'err');
-                }
-            }, 500);
-        }
-
-        // =====================================================================
-        // EMBEDDING MODEL
-        // =====================================================================
-        function setModelStatus(state, text) {
-            const dot = document.getElementById('modelDot');
-            const span = document.getElementById('modelStatusText');
-            dot.className = `dot ${state}`;
-            span.textContent = text;
-            const badge = document.getElementById('modelStatus');
-            if (state === 'ready') badge.classList.add('active');
-            else badge.classList.remove('active');
-        }
-
+        // ─── Embedding Model ───
+        function setModelStatus(state, text) { document.getElementById('modelDot').className=`dot ${state}`; document.getElementById('modelStatusText').textContent=text; const b=document.getElementById('modelStatus'); if(state==='ready')b.classList.add('active');else b.classList.remove('active'); }
         async function loadEmbeddingModel() {
-            const modelId = document.getElementById('modelSelect').value;
-            const dtype = document.getElementById('modelDtype').value;
-            const dim = parseInt(document.getElementById('modelSelect').selectedOptions[0].dataset.dim);
-
-            setModelStatus('loading', `Loading ${modelId.split('/')[1]}...`);
-            const progressBar = document.getElementById('modelLoadProgress');
-            const progressFill = document.getElementById('modelLoadFill');
-            progressBar.style.display = 'block';
-            progressFill.style.width = '0%';
-
+            const modelId=document.getElementById('modelSelect').value, dtype=document.getElementById('modelDtype').value, dim=parseInt(document.getElementById('modelSelect').selectedOptions[0].dataset.dim);
+            setModelStatus('loading',`Loading ${modelId.split('/')[1]}...`);
+            const pb=document.getElementById('modelLoadProgress'),pf=document.getElementById('modelLoadFill'); pb.style.display='block'; pf.style.width='0%';
             try {
-                log(`Loading embedding model: ${modelId} (${dtype})...`, 'info');
-
-                embedder = await pipeline('feature-extraction', modelId, {
-                    dtype: dtype,
-                    progress_callback: (p) => {
-                        if (p.status === 'progress' && p.total > 0) {
-                            const pct = ((p.loaded / p.total) * 100).toFixed(0);
-                            progressFill.style.width = `${pct}%`;
-                        }
-                    }
-                });
-
-                embeddingDim = dim;
-                progressFill.style.width = '100%';
-                setTimeout(() => { progressBar.style.display = 'none'; }, 500);
-
-                setModelStatus('ready', `${modelId.split('/')[1]} (${dim}d, ${dtype})`);
-                log(`Embedding model loaded: ${dim} dimensions`, 'ok');
-
-                document.getElementById('btnUnloadModel').disabled = false;
-                document.getElementById('btnLoadModel').disabled = true;
-
-                // If no index exists yet, create one with the right dimensions
-                if (!db || db.dim() !== dim) {
-                    await createIndexForModel(dim);
-                }
-
-                return true;
-            } catch (err) {
-                progressBar.style.display = 'none';
-                setModelStatus('error', `Failed: ${err.message}`);
-                log(`Model load error: ${err.message}`, 'err');
-                return false;
-            }
+                log(`Loading model: ${modelId} (${dtype})...`,'info');
+                embedder=await pipeline('feature-extraction',modelId,{dtype,progress_callback:p=>{if(p.status==='progress'&&p.total>0)pf.style.width=`${((p.loaded/p.total)*100).toFixed(0)}%`;}});
+                embeddingDim=dim; pf.style.width='100%'; setTimeout(()=>{pb.style.display='none';},500);
+                setModelStatus('ready',`${modelId.split('/')[1]} (${dim}d, ${dtype})`); log(`Model loaded: ${dim}d`,'ok');
+                document.getElementById('btnUnloadModel').disabled=false; document.getElementById('btnLoadModel').disabled=true;
+                updateBuilderState();
+                if(!db||db.dim()!==dim) await createIndexForModel(dim);
+            } catch(err) { pb.style.display='none'; setModelStatus('error',`Failed: ${err.message}`); log(`Model error: ${err.message}`,'err'); }
         }
+        async function createIndexForModel(dim) { const m=document.getElementById('cfgMetric').value,M=parseInt(document.getElementById('cfgM').value),ec=parseInt(document.getElementById('cfgEfConst').value),es=parseInt(document.getElementById('cfgEfSearch').value); if(db)db.free(); db=new VectorDB(dim,m,M,ec,es); log(`Index created: dim=${dim}, metric=${m}`,'ok'); updateStats(); }
+        async function embed(texts) { if(!embedder)throw new Error('Load model first'); return await embedder(texts,{pooling:'mean',normalize:true}); }
+        function unloadModel() { embedder=null; embeddingDim=null; setModelStatus('','Not loaded'); document.getElementById('btnLoadModel').disabled=false; document.getElementById('btnUnloadModel').disabled=true; updateBuilderState(); log('Model unloaded','info'); }
+        document.getElementById('btnLoadModel').addEventListener('click',loadEmbeddingModel);
+        document.getElementById('btnUnloadModel').addEventListener('click',unloadModel);
 
-        async function createIndexForModel(dim) {
-            const metric = document.getElementById('cfgMetric').value;
-            const m = parseInt(document.getElementById('cfgM').value);
-            const efConst = parseInt(document.getElementById('cfgEfConst').value);
-            const efSearch = parseInt(document.getElementById('cfgEfSearch').value);
+        // ─── Stats ───
+        function updateStats() { if(!db){document.getElementById('statVectors').textContent='0';document.getElementById('statDim').textContent='-';document.getElementById('statMemory').textContent='0 B';return;} const s=JSON.parse(db.stats()); document.getElementById('statVectors').textContent=s.num_vectors.toLocaleString(); document.getElementById('statDim').textContent=s.dimensions; const b=s.memory_bytes; document.getElementById('statMemory').textContent=b<1024?`${b} B`:b<1048576?`${(b/1024).toFixed(1)} KB`:`${(b/1048576).toFixed(1)} MB`; }
+        function randomVector(dim) { const v=new Float32Array(dim); for(let i=0;i<dim;i++)v[i]=(Math.random()-0.5)*2; return v; }
 
-            if (db) db.free();
-            db = new VectorDB(dim, metric, m, efConst, efSearch);
-            log(`Index created: dim=${dim}, metric=${metric}`, 'ok');
-            updateStats();
-        }
+        // ─── Tab Navigation ───
+        document.querySelectorAll('.tab-bar').forEach(bar=>{bar.querySelectorAll('button').forEach(btn=>{btn.addEventListener('click',()=>{const c=btn.closest('.card')||btn.closest('.builder-step'); c.querySelectorAll('.tab-bar button').forEach(b=>b.classList.remove('active')); c.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active')); btn.classList.add('active'); c.querySelector(`#tab-${btn.dataset.tab}`).classList.add('active');});});});
 
-        async function embed(texts) {
-            if (!embedder) throw new Error('Load an embedding model first');
-            const output = await embedder(texts, { pooling: 'mean', normalize: true });
-            return output;
-        }
-
-        function unloadModel() {
-            embedder = null;
-            embeddingDim = null;
-            setModelStatus('', 'Not loaded');
-            document.getElementById('btnLoadModel').disabled = false;
-            document.getElementById('btnUnloadModel').disabled = true;
-            log('Embedding model unloaded', 'info');
-        }
-
-        // =====================================================================
-        // STATS
-        // =====================================================================
-        function updateStats() {
-            if (!db) {
-                document.getElementById('statVectors').textContent = '0';
-                document.getElementById('statDim').textContent = '-';
-                document.getElementById('statMemory').textContent = '0 B';
-                return;
-            }
-            const stats = JSON.parse(db.stats());
-            document.getElementById('statVectors').textContent = stats.num_vectors.toLocaleString();
-            document.getElementById('statDim').textContent = stats.dimensions;
-            const bytes = stats.memory_bytes;
-            const fmt = bytes < 1024 ? `${bytes} B`
-                : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB`
-                : `${(bytes / 1048576).toFixed(1)} MB`;
-            document.getElementById('statMemory').textContent = fmt;
-        }
-
-        function randomVector(dim) {
-            const v = new Float32Array(dim);
-            for (let i = 0; i < dim; i++) v[i] = (Math.random() - 0.5) * 2;
-            return v;
-        }
-
-        // =====================================================================
-        // TAB NAVIGATION
-        // =====================================================================
-        document.querySelectorAll('.tab-bar').forEach(bar => {
-            bar.querySelectorAll('button').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const card = bar.closest('.card');
-                    card.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
-                    card.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-                    btn.classList.add('active');
-                    card.querySelector(`#tab-${btn.dataset.tab}`).classList.add('active');
-                });
-            });
-        });
-
-        // =====================================================================
-        // RESULT RENDERING
-        // =====================================================================
-        function renderResults(results) {
-            const list = document.getElementById('results');
-            list.innerHTML = '';
-            results.forEach((r, i) => {
-                const li = document.createElement('li');
-                let contentHtml = '';
-                if (r.metadata) {
-                    try {
-                        const meta = JSON.parse(r.metadata);
-                        if (meta.text) {
-                            contentHtml = `<div class="result-text">${escapeHtml(meta.text)}</div>`;
-                            const parts = [];
-                            if (meta.label) parts.push(`<span style="color:var(--green)">⏺ ${escapeHtml(meta.label)}</span>`);
-                            if (meta.source) parts.push(`<span>📦 ${escapeHtml(meta.source)}</span>`);
-                            const otherKeys = Object.keys(meta).filter(k => !['text','label','source'].includes(k));
-                            for (const k of otherKeys) parts.push(`${k}: ${meta[k]}`);
-                            if (parts.length) contentHtml += `<div class="result-meta">${parts.join(' · ')}</div>`;
-                        } else {
-                            contentHtml = `<div class="result-meta">${escapeHtml(r.metadata)}</div>`;
-                        }
-                    } catch {
-                        contentHtml = `<div class="result-meta">${escapeHtml(r.metadata)}</div>`;
-                    }
-                }
-                contentHtml += `<div class="result-meta">ID: ${r.id}</div>`;
-
-                li.innerHTML = `<span class="rank">#${i + 1}</span>
-                    <div class="result-content">${contentHtml}</div>
-                    <span class="dist">d=${r.distance.toFixed(4)}</span>`;
+        // ─── Results Rendering ───
+        function escapeHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+        function renderResults(results, targetEl='results') {
+            const list=document.getElementById(targetEl); list.innerHTML='';
+            results.forEach((r,i)=>{
+                const li=document.createElement('li'); let c='';
+                if(r.metadata){try{const m=JSON.parse(r.metadata);if(m.text){c=`<div class="result-text">${escapeHtml(m.text)}</div>`;const p=[];if(m.label)p.push(`<span style="color:var(--green)">⏺ ${escapeHtml(m.label)}</span>`);if(m.source_file)p.push(`<span>📄 ${escapeHtml(m.source_file)}</span>`);if(m.section_heading)p.push(`<span style="color:var(--yellow)">§ ${escapeHtml(m.section_heading)}</span>`);if(m.source)p.push(`<span>📦 ${escapeHtml(m.source)}</span>`);if(m.url)p.push(`<a href="${escapeHtml(m.url)}" target="_blank" style="color:var(--blue)">🔗 source</a>`);if(m.prev_chunk_id!=null)p.push(`<span>⬅${m.prev_chunk_id}</span>`);if(m.next_chunk_id!=null)p.push(`<span>➡${m.next_chunk_id}</span>`);if(p.length)c+=`<div class="result-meta">${p.join(' · ')}</div>`;}else{c=`<div class="result-meta">${escapeHtml(r.metadata)}</div>`;}}catch{c=`<div class="result-meta">${escapeHtml(r.metadata)}</div>`;}}
+                c+=`<div class="result-meta">ID: ${r.id}</div>`;
+                li.innerHTML=`<span class="rank">#${i+1}</span><div class="result-content">${c}</div><span class="dist">d=${r.distance.toFixed(4)}</span>`;
                 list.appendChild(li);
             });
         }
 
-        function escapeHtml(str) {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
+        // ─── Engine Event Handlers ───
+        document.getElementById('btnCreate').addEventListener('click',async()=>{await createIndexForModel(embeddingDim||384);await opfsClear();setOpfsIndicator('saved','OPFS: new index');});
+        document.getElementById('btnIndexText').addEventListener('click',async()=>{if(!embedder){log('Load model first!','warn');return;}if(!db){log('Create index first!','warn');return;}const t=document.getElementById('textInput').value.trim();if(!t)return;try{const t0=performance.now();const o=await embed([t]);const v=new Float32Array(o.data.slice(0,embeddingDim));const id=db.insert(v,JSON.stringify({text:t}));log(`Indexed → ID ${id} (${(performance.now()-t0).toFixed(0)}ms)`,'ok');document.getElementById('textInput').value='';updateStats();scheduleAutoSave();}catch(e){log(`Error: ${e.message}`,'err');}});
+        document.getElementById('btnBulkIndex').addEventListener('click',async()=>{if(!embedder){log('Load model first!','warn');return;}if(!db)return;const raw=document.getElementById('bulkTextInput').value.trim();if(!raw)return;const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l.length>0);if(!lines.length)return;log(`Embedding ${lines.length} lines...`,'info');try{const t0=performance.now();let n=0;for(let i=0;i<lines.length;i+=32){const b=lines.slice(i,i+32);const o=await embed(b);for(let j=0;j<b.length;j++){db.insert(new Float32Array(o.data.slice(j*embeddingDim,(j+1)*embeddingDim)),JSON.stringify({text:b[j]}));n++;}}log(`Indexed ${n} lines in ${(performance.now()-t0).toFixed(0)}ms`,'ok');document.getElementById('bulkTextInput').value='';updateStats();scheduleAutoSave();}catch(e){log(`Error: ${e.message}`,'err');}});
+        document.getElementById('datasetSelect').addEventListener('change',()=>{const s=document.getElementById('datasetSelect'),o=s.selectedOptions[0],d=document.getElementById('datasetDesc');if(o?.dataset.desc){d.textContent=`${o.dataset.desc} — ${o.dataset.dataset}`;d.style.display='block';}else d.style.display='none';document.getElementById('btnLoadDataset').disabled=!o?.value;});
+        document.getElementById('btnLoadDataset').addEventListener('click',async()=>{if(!embedder||!db)return;const sel=document.getElementById('datasetSelect'),opt=sel.selectedOptions[0];if(!opt?.value)return;const ds=opt.dataset.dataset,cfg=opt.dataset.config,sp=opt.dataset.split,tc=opt.dataset.col,lc=opt.dataset.label,ln=opt.dataset.labels?.split(',')||null,tr=Math.min(parseInt(document.getElementById('datasetRows').value)||200,500);const pb=document.getElementById('datasetProgress'),pf=document.getElementById('datasetProgressFill'),st=document.getElementById('datasetStatusText');pb.style.display='block';st.style.display='block';pf.style.width='0%';const btn=document.getElementById('btnLoadDataset');btn.disabled=true;btn.textContent='Loading...';try{st.textContent=`Fetching from ${ds}...`;let off=0;if(document.getElementById('datasetOffset').value==='random'){const sr=await fetch(`https://datasets-server.huggingface.co/size?dataset=${encodeURIComponent(ds)}`);if(sr.ok){const sd=await sr.json();const si=sd.size?.splits?.find(s=>s.config===cfg&&s.split===sp);if(si&&si.num_rows>tr)off=Math.floor(Math.random()*(si.num_rows-tr));}}const at=[],al=[];for(let f=0;f<tr;f+=100){const l=Math.min(100,tr-f);const r=await fetch(`https://datasets-server.huggingface.co/rows?dataset=${encodeURIComponent(ds)}&config=${encodeURIComponent(cfg)}&split=${encodeURIComponent(sp)}&offset=${off+f}&length=${l}`);if(!r.ok)throw new Error(`HTTP ${r.status}`);const d=await r.json();for(const it of d.rows){const t=it.row[tc],lb=it.row[lc];if(t?.trim().length>0){at.push(t.trim());al.push(lb);}}pf.style.width=`${Math.min(100,((f+l)/tr*30)).toFixed(0)}%`;st.textContent=`Fetched ${at.length} rows...`;}log(`Fetched ${at.length} rows`,'ok');let idx=0;const t0=performance.now();for(let i=0;i<at.length;i+=32){const b=at.slice(i,i+32),bl=al.slice(i,i+32),o=await embed(b);for(let j=0;j<b.length;j++){const v=new Float32Array(o.data.slice(j*embeddingDim,(j+1)*embeddingDim));const ls=ln&&bl[j]!==undefined?ln[bl[j]]:String(bl[j]);db.insert(v,JSON.stringify({text:b[j],label:ls,source:ds}));idx++;}pf.style.width=`${(30+(idx/at.length)*70).toFixed(0)}%`;st.textContent=`Embedding: ${idx}/${at.length}...`;}pf.style.width='100%';st.textContent=`✅ ${idx} items in ${(performance.now()-t0).toFixed(0)}ms`;log(`Indexed ${idx} items from ${ds}`,'ok');updateStats();scheduleAutoSave();}catch(e){log(`Dataset error: ${e.message}`,'err');}btn.disabled=false;btn.textContent='Load & Index Dataset';});
+        document.getElementById('btnTextSearch').addEventListener('click',async()=>{if(!embedder||!db||db.len()===0)return;const q=document.getElementById('textSearchQuery').value.trim();if(!q)return;const k=parseInt(document.getElementById('textSearchK').value)||5;try{const t0=performance.now();const o=await embed([q]);const v=new Float32Array(o.data.slice(0,embeddingDim));const r=JSON.parse(db.search(v,k));log(`Search: "${q}" → ${r.length} results (${(performance.now()-t0).toFixed(1)}ms)`,'ok');renderResults(r,'results');}catch(e){log(`Search error: ${e.message}`,'err');}});
+        document.getElementById('textSearchQuery').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('btnTextSearch').click();});
+        document.getElementById('btnSearch').addEventListener('click',()=>{if(!db||db.len()===0)return;const k=parseInt(document.getElementById('searchK').value)||10,ef=parseInt(document.getElementById('searchEf').value)||40;const qs=document.getElementById('searchQuery').value.trim();let q;if(qs){q=new Float32Array(qs.split(',').map(Number));if(q.length!==db.dim()){log(`Dim mismatch`,'err');return;}}else q=randomVector(db.dim());const t0=performance.now();const r=JSON.parse(db.search_with_ef(q,k,ef));log(`Vector search: k=${k} → ${r.length} results (${(performance.now()-t0).toFixed(3)}ms)`,'ok');renderResults(r,'results');document.getElementById('perfBar').style.display='block';document.getElementById('perfFill').style.width=`${Math.min(100,(1/((performance.now()-t0)/1000))*0.1)}%`;});
+        document.getElementById('btnInsertRandom').addEventListener('click',()=>{if(!db)return;const n=parseInt(document.getElementById('insertCount').value)||1000,dim=db.dim();const t0=performance.now();const f=new Float32Array(n*dim);for(let i=0;i<f.length;i++)f[i]=(Math.random()-0.5)*2;db.insert_batch(f,n);log(`Inserted ${n} random vectors (${(performance.now()-t0).toFixed(0)}ms)`,'ok');updateStats();scheduleAutoSave();});
+        document.getElementById('btnInsertManual').addEventListener('click',()=>{if(!db)return;const s=document.getElementById('insertManual').value.trim();if(!s)return;const v=new Float32Array(s.split(',').map(Number));if(v.length!==db.dim()){log('Dim mismatch','err');return;}const m=document.getElementById('insertMeta').value.trim()||null;const id=db.insert(v,m);log(`Inserted → ID ${id}`,'ok');updateStats();scheduleAutoSave();});
+        document.getElementById('btnBenchmark').addEventListener('click',()=>{if(!db||db.len()===0)return;const dim=db.dim(),k=parseInt(document.getElementById('searchK').value)||10,ef=parseInt(document.getElementById('searchEf').value)||40;const t0=performance.now();for(let i=0;i<100;i++)db.search_with_ef(randomVector(dim),k,ef);const t=performance.now()-t0;log(`Benchmark: 100 queries, avg ${(t/100).toFixed(3)}ms (${(100/(t/1000)).toFixed(0)} QPS)`,'ok');});
+        document.getElementById('btnExport').addEventListener('click',()=>{if(!db)return;const j=db.save();const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([j],{type:'application/json'}));a.download='vecdb-index.json';a.click();log(`Exported (${(j.length/1024).toFixed(0)} KB)`,'ok');});
+        document.getElementById('btnImport').addEventListener('click',()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const t=await f.text();if(db)db.free();db=VectorDB.load(t);log(`Imported: ${db.len()} vectors, dim=${db.dim()}`,'ok');updateStats();scheduleAutoSave();}catch(err){log(`Import error: ${err.message}`,'err');}});inp.click();});
+        document.getElementById('btnReset').addEventListener('click',async()=>{if(!confirm('Delete all data?'))return;if(db)db.free();db=null;await opfsClear();setOpfsIndicator('saved','OPFS: cleared');updateStats();log('Reset complete','warn');});
+
+        // ─── vROM Hub ───
+        const VROM_REGISTRY=[
+            {id:'hf-transformers-docs',name:'🤗 HF Transformers + Hub Docs',desc:'Transformers API reference, tutorials, tasks, training guides, plus Hub documentation. 44 pages pre-embedded.',repo:'philipp-zettl/vrom-hf-docs',vectors:1356,tokens:'233K',size:'12.6 MB',model:'all-MiniLM-L6-v2',dim:384,tags:['transformers','hub','api-reference','training','pipeline'],official:true},
+            {id:'hf-ml-training-stack',name:'🎯 ML Training Stack (TRL + PEFT + Datasets)',desc:'SFT, DPO, GRPO, PPO trainers, LoRA/PEFT methods, and Datasets loading/processing. The complete fine-tuning reference.',repo:'philipp-zettl/vrom-ml-training',vectors:629,tokens:'100K',size:'5.8 MB',model:'all-MiniLM-L6-v2',dim:384,tags:['trl','peft','datasets','lora','dpo','sft','grpo'],official:true},
+        ];
+
+        function renderVromRegistry() {
+            const grid=document.getElementById('vromOfficialGrid'); grid.innerHTML='';
+            for(const v of VROM_REGISTRY){const c=document.createElement('div');c.className='vrom-card';c.innerHTML=`<span class="vrom-badge ${v.official?'':'community'}">${v.official?'Official':'Community'}</span><h3>${v.name}</h3><div class="vrom-desc">${v.desc}</div><div class="vrom-stats"><span>📊 <span class="val">${v.vectors.toLocaleString()}</span> vectors</span><span>📐 <span class="val">${v.dim}</span>d</span><span>💾 <span class="val">${v.size}</span></span><span>🧠 <span class="val">${v.model}</span></span></div><div class="vrom-tags">${v.tags.map(t=>`<span class="vrom-tag">${t}</span>`).join('')}</div><div class="btn-row"><button class="vrom-load-btn" data-repo="${v.repo}" data-id="${v.id}" data-dim="${v.dim}">🧩 Load vROM</button><a href="https://huggingface.co/datasets/${v.repo}" target="_blank"><button class="secondary" type="button">📦 Dataset</button></a></div>`;grid.appendChild(c);}
+            grid.querySelectorAll('.vrom-load-btn').forEach(btn=>{btn.addEventListener('click',()=>loadVrom(btn.dataset.repo,btn.dataset.id,parseInt(btn.dataset.dim)));});
         }
 
-        // =====================================================================
-        // EVENT HANDLERS
-        // =====================================================================
-
-        // --- Model ---
-        document.getElementById('btnLoadModel').addEventListener('click', loadEmbeddingModel);
-        document.getElementById('btnUnloadModel').addEventListener('click', unloadModel);
-
-        // --- Create Index ---
-        document.getElementById('btnCreate').addEventListener('click', async () => {
-            const dim = embeddingDim || 384;
-            await createIndexForModel(dim);
-            await opfsClear();
-            setOpfsIndicator('saved', 'OPFS: new index');
-        });
-
-        // --- Text Indexing (single) ---
-        document.getElementById('btnIndexText').addEventListener('click', async () => {
-            if (!embedder) { log('Load an embedding model first!', 'warn'); return; }
-            if (!db) { log('Create an index first!', 'warn'); return; }
-
-            const text = document.getElementById('textInput').value.trim();
-            if (!text) { log('Enter text to index', 'warn'); return; }
-
+        async function loadVrom(repo,id,dim) {
+            const btn=document.querySelector(`.vrom-load-btn[data-repo="${repo}"]`);const orig=btn.textContent;btn.disabled=true;btn.textContent='⏳ Loading...';
             try {
-                const t0 = performance.now();
-                const output = await embed([text]);
-                const vec = new Float32Array(output.data.slice(0, embeddingDim));
-                const metadata = JSON.stringify({ text: text });
-                const id = db.insert(vec, metadata);
-                const ms = (performance.now() - t0).toFixed(0);
+                log(`Loading vROM: ${repo}...`,'info');
+                const mr=await fetch(`https://huggingface.co/datasets/${repo}/resolve/main/manifest.json`);if(!mr.ok)throw new Error(`Manifest: ${mr.status}`);vromManifest=await mr.json();
+                btn.textContent='⏳ Downloading index...';
+                const ir=await fetch(`https://huggingface.co/datasets/${repo}/resolve/main/index.json`);if(!ir.ok)throw new Error(`Index: ${ir.status}`);const ij=await ir.text();
+                if(vromDb)vromDb.free(); vromDb=VectorDB.load(ij);
+                log(`vROM loaded: ${vromDb.len()} vectors, ${vromDb.dim()}d`,'ok');
+                document.getElementById('vromLoadedBanner').classList.remove('hidden');
+                document.getElementById('vromLoadedName').textContent=`🧩 ${vromManifest.vrom_id} v${vromManifest.version}`;
+                document.getElementById('vromLoadedMeta').textContent=`${vromDb.len()} vectors · ${vromDb.dim()}d · ${vromManifest.embedding_spec?.model||'?'} · ${(ij.length/1048576).toFixed(1)} MB`;
+                document.getElementById('vromSearchCard').classList.remove('hidden');
+                if(!embedder)log('💡 Load embedding model (Engine tab) to search','warn');
+            } catch(err) { log(`vROM load error: ${err.message}`,'err'); }
+            btn.disabled=false; btn.textContent=orig;
+        }
 
-                log(`Indexed text → ID ${id} (${ms}ms)`, 'ok');
-                document.getElementById('textInput').value = '';
-                updateStats();
-                scheduleAutoSave();
-            } catch (e) {
-                log(`Index error: ${e.message}`, 'err');
-            }
-        });
+        document.getElementById('btnVromUnload').addEventListener('click',()=>{if(vromDb){vromDb.free();vromDb=null;}vromManifest=null;document.getElementById('vromLoadedBanner').classList.add('hidden');document.getElementById('vromSearchCard').classList.add('hidden');document.getElementById('vromResults').innerHTML='';log('vROM unloaded','info');});
+        document.getElementById('btnVromSearch').addEventListener('click',()=>{document.getElementById('vromSearchQuery').focus();});
+        document.getElementById('btnVromDoSearch').addEventListener('click',doVromSearch);
+        document.getElementById('vromSearchQuery').addEventListener('keydown',e=>{if(e.key==='Enter')doVromSearch();});
 
-        // --- Bulk Text Indexing ---
-        document.getElementById('btnBulkIndex').addEventListener('click', async () => {
-            if (!embedder) { log('Load an embedding model first!', 'warn'); return; }
-            if (!db) { log('Create an index first!', 'warn'); return; }
-
-            const raw = document.getElementById('bulkTextInput').value.trim();
-            if (!raw) { log('Enter text to index', 'warn'); return; }
-
-            const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            if (lines.length === 0) { log('No non-empty lines found', 'warn'); return; }
-
-            log(`Embedding ${lines.length} lines...`, 'info');
-
+        async function doVromSearch() {
+            if(!vromDb||!embedder)return;const q=document.getElementById('vromSearchQuery').value.trim();if(!q)return;
+            const k=parseInt(document.getElementById('vromSearchK').value)||5, ew=parseInt(document.getElementById('vromExpandWindow').value)||0;
             try {
-                const t0 = performance.now();
+                const t0=performance.now();const o=await embed([q]);const v=new Float32Array(o.data.slice(0,embeddingDim));const r=JSON.parse(vromDb.search(v,k));
+                if(ew>0){for(const res of r){if(!res.metadata)continue;try{const m=JSON.parse(res.metadata);const parts=[];let pid=m.prev_chunk_id;for(let i=0;i<ew&&pid!=null;i++){const pm=vromDb.get_metadata(pid);if(!pm)break;const p=JSON.parse(pm);parts.unshift(p.text||'');pid=p.prev_chunk_id;}let nid=m.next_chunk_id;const after=[];for(let i=0;i<ew&&nid!=null;i++){const nm=vromDb.get_metadata(nid);if(!nm)break;const n=JSON.parse(nm);after.push(n.text||'');nid=n.next_chunk_id;}if(parts.length||after.length){m.text=[...parts,m.text,...after].join('\n\n---\n\n');res.metadata=JSON.stringify(m);}}catch{}}}
+                log(`vROM search: "${q}" → ${r.length} results (${(performance.now()-t0).toFixed(1)}ms)`,'ok');renderResults(r,'vromResults');
+            } catch(e) { log(`vROM search error: ${e.message}`,'err'); }
+        }
 
-                // Batch embed in chunks of 32 to avoid memory issues
-                const batchSize = 32;
-                let totalIndexed = 0;
+        // ─── vROM Builder ───
+        function updateBuilderState() { document.getElementById('btnBuilderBuild').disabled=!(builderSources.length>0&&embedder); }
+        function renderBuilderSources() {
+            document.getElementById('builderSourceCount').textContent=builderSources.length;
+            const list=document.getElementById('builderSourceList');
+            if(!builderSources.length){list.innerHTML='<em>No sources added yet</em>';return;}
+            list.innerHTML=builderSources.map((s,i)=>`<div style="display:flex;align-items:center;gap:0.5rem;margin:0.25rem 0"><span style="color:var(--green)">📄</span><span>${escapeHtml(s.title||s.source_file)} <span style="color:var(--text-dim)">(${(s.text.length/1024).toFixed(1)} KB)</span></span><button class="secondary" style="padding:0.15rem 0.4rem;font-size:0.7rem" onclick="window._rmSrc(${i})">✕</button></div>`).join('');
+        }
+        window._rmSrc=function(i){builderSources.splice(i,1);renderBuilderSources();updateBuilderState();};
 
-                for (let i = 0; i < lines.length; i += batchSize) {
-                    const batch = lines.slice(i, i + batchSize);
-                    const output = await embed(batch);
+        document.getElementById('btnBuilderAddText').addEventListener('click',()=>{const t=document.getElementById('builderTextInput').value.trim();if(!t)return;const title=document.getElementById('builderTitle').value.trim()||'Untitled';builderSources.push({text:t,source_file:`custom/${title.toLowerCase().replace(/\s+/g,'-')}.md`,title,url:document.getElementById('builderUrl').value.trim()});document.getElementById('builderTextInput').value='';document.getElementById('builderTitle').value='';document.getElementById('builderUrl').value='';renderBuilderSources();updateBuilderState();log(`Added source: "${title}"`,'ok');});
+        document.getElementById('btnBuilderFetchHf').addEventListener('click',async()=>{const url=document.getElementById('builderHfUrl').value.trim();if(!url)return;const btn=document.getElementById('btnBuilderFetchHf');btn.disabled=true;btn.textContent='Fetching...';try{const r=await fetch(url.endsWith('.md')?url:`${url}.md`);if(!r.ok)throw new Error(`HTTP ${r.status}`);const t=await r.text();const tm=t.match(/^#\s+(.*?)$/m);const title=tm?tm[1].trim():url.split('/').pop();builderSources.push({text:t,source_file:url.replace('https://huggingface.co/docs/','')+'.md',title,url});document.getElementById('builderHfUrl').value='';renderBuilderSources();updateBuilderState();log(`Fetched: "${title}" (${(t.length/1024).toFixed(1)} KB)`,'ok');}catch(e){log(`Fetch error: ${e.message}`,'err');}btn.disabled=false;btn.textContent='Fetch Page';});
 
-                    for (let j = 0; j < batch.length; j++) {
-                        const vec = new Float32Array(output.data.slice(j * embeddingDim, (j + 1) * embeddingDim));
-                        const metadata = JSON.stringify({ text: batch[j] });
-                        db.insert(vec, metadata);
-                        totalIndexed++;
-                    }
+        function estimateTokens(t){return Math.max(1,Math.floor(t.length/4));}
+        function sectionChunk(text,sf,dt,url,mt,sid){const chunks=[];let cid=sid;const secs=text.split(/(?=^#{1,6}\s)/m);for(let sec of secs){sec=sec.trim();if(!sec)continue;const hm=sec.match(/^#{1,6}\s+(.*?)$/m);const h=hm?hm[1].trim():dt;if(estimateTokens(sec)<=mt){chunks.push({chunk_id:cid++,text:sec,source_file:sf,section_heading:h,url,doc_title:dt,prev_chunk_id:null,next_chunk_id:null,token_estimate:estimateTokens(sec)});continue;}const cb=[];const pr=sec.replace(/```[\s\S]*?```/g,m=>{cb.push(m);return`__CB${cb.length-1}__`;});const paras=pr.split(/\n\n+/);let cur='';for(let p of paras){let rp=p;for(let i=0;i<cb.length;i++)rp=rp.replace(`__CB${i}__`,cb[i]);if(estimateTokens(cur+'\n\n'+rp)>mt&&cur){chunks.push({chunk_id:cid++,text:cur.trim(),source_file:sf,section_heading:h,url,doc_title:dt,prev_chunk_id:null,next_chunk_id:null,token_estimate:estimateTokens(cur)});cur=rp;}else cur=(cur+'\n\n'+rp).trim();}if(cur.trim())chunks.push({chunk_id:cid++,text:cur.trim(),source_file:sf,section_heading:h,url,doc_title:dt,prev_chunk_id:null,next_chunk_id:null,token_estimate:estimateTokens(cur)});}for(let i=0;i<chunks.length;i++){chunks[i].prev_chunk_id=i>0?chunks[i-1].chunk_id:null;chunks[i].next_chunk_id=i<chunks.length-1?chunks[i+1].chunk_id:null;}return chunks;}
 
-                    if (lines.length > batchSize) {
-                        log(`Progress: ${totalIndexed}/${lines.length} lines indexed`, 'info');
-                    }
-                }
-
-                const ms = (performance.now() - t0).toFixed(0);
-                log(`Indexed ${totalIndexed} lines in ${ms}ms (${(totalIndexed / (ms / 1000)).toFixed(0)} lines/s)`, 'ok');
-                document.getElementById('bulkTextInput').value = '';
-                updateStats();
-                scheduleAutoSave();
-            } catch (e) {
-                log(`Bulk index error: ${e.message}`, 'err');
-            }
+        document.getElementById('btnBuilderBuild').addEventListener('click',async()=>{
+            if(!embedder||!builderSources.length)return;
+            const mt=parseInt(document.getElementById('builderMaxTokens').value)||256,vid=document.getElementById('builderVromId').value.trim()||'custom-vrom',ver=document.getElementById('builderVersion').value.trim()||'1.0.0',desc=document.getElementById('builderDesc').value.trim()||'';
+            const pb=document.getElementById('builderProgress'),pf=document.getElementById('builderProgressFill'),st=document.getElementById('builderStatusText');pb.style.display='block';st.style.display='block';pf.style.width='0%';
+            const btn=document.getElementById('btnBuilderBuild');btn.disabled=true;btn.textContent='🔨 Building...';
+            try{const t0=performance.now();st.textContent='Chunking...';let ac=[],nid=0;for(const s of builderSources){const ch=sectionChunk(s.text,s.source_file,s.title,s.url,mt,nid);ac=ac.concat(ch);nid=ac.length?ac[ac.length-1].chunk_id+1:0;}pf.style.width='10%';log(`Chunked → ${ac.length} chunks`,'ok');
+            st.textContent=`Embedding ${ac.length} chunks...`;const texts=ac.map(c=>c.text),embs=[];for(let i=0;i<texts.length;i+=32){const b=texts.slice(i,i+32),o=await embed(b);for(let j=0;j<b.length;j++)embs.push(Array.from(o.data.slice(j*embeddingDim,(j+1)*embeddingDim)));pf.style.width=`${(10+(embs.length/texts.length)*60).toFixed(0)}%`;st.textContent=`Embedding: ${embs.length}/${texts.length}...`;}
+            st.textContent='Building HNSW...';pf.style.width='75%';const tdb=new VectorDB(embeddingDim,'cosine',16,128,40);for(let i=0;i<ac.length;i++){tdb.insert(new Float32Array(embs[i]),JSON.stringify({chunk_id:ac[i].chunk_id,text:ac[i].text,source_file:ac[i].source_file,section_heading:ac[i].section_heading,prev_chunk_id:ac[i].prev_chunk_id,next_chunk_id:ac[i].next_chunk_id,url:ac[i].url,doc_title:ac[i].doc_title}));}pf.style.width='90%';
+            st.textContent='Serializing...';const ij=tdb.save();tdb.free();const tt=ac.reduce((s,c)=>s+c.token_estimate,0);const ch=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(texts.join(''))))).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,16);
+            const mf={vrom_id:vid,version:ver,description:desc,source:builderSources.map(s=>s.url||s.source_file).join(', '),embedding_spec:{model:document.getElementById('modelSelect').value,dimensions:embeddingDim,quantization:document.getElementById('modelDtype').value,distance_metric:'cosine',normalized:true},hnsw_config:{m:16,m_max0:32,ef_construction:128,ef_search:40,metric:'Cosine'},vector_count:ac.length,total_tokens:tt,total_chunks:ac.length,corpus_hash:ch,created_at:new Date().toISOString(),chunk_strategy:{method:'section_aware',max_tokens:mt,overlap:0,preserve_code_blocks:true,linked_list_pointers:true},files:{index:'index.json',chunks:'chunks.json',manifest:'manifest.json'},compatibility:{vecdb_wasm:'>=0.1.0',load_method:'VectorDB.load(json)'}};
+            const cj=JSON.stringify(ac.map(c=>({chunk_id:c.chunk_id,text:c.text,source_file:c.source_file,section_heading:c.section_heading,token_estimate:c.token_estimate,prev_chunk_id:c.prev_chunk_id,next_chunk_id:c.next_chunk_id,url:c.url,doc_title:c.doc_title})),null,2);
+            builderResult={indexJson:ij,chunksJson:cj,manifestJson:JSON.stringify(mf,null,2),manifest:mf,allChunks:ac};pf.style.width='100%';const el=((performance.now()-t0)/1000).toFixed(1);st.textContent=`✅ Built in ${el}s`;
+            document.getElementById('builderPreview').classList.remove('hidden');document.getElementById('bpVectors').textContent=ac.length.toLocaleString();document.getElementById('bpTokens').textContent=tt>1000?`${(tt/1000).toFixed(0)}K`:tt;document.getElementById('bpSize').textContent=`${(ij.length/1048576).toFixed(1)} MB`;document.getElementById('bpTime').textContent=`${el}s`;
+            document.getElementById('builderChunkPreview').innerHTML=ac.slice(0,20).map(c=>`<div class="chunk-item"><span class="chunk-id">#${c.chunk_id}</span><span class="chunk-heading">${escapeHtml(c.section_heading)}</span><span class="chunk-text">${escapeHtml(c.text.slice(0,120))}</span></div>`).join('');
+            document.getElementById('btnBuilderDownload').disabled=false;document.getElementById('btnBuilderLoadInEngine').disabled=false;log(`vROM built: ${ac.length} vectors, ${(ij.length/1048576).toFixed(1)} MB`,'ok');
+            }catch(e){log(`Build error: ${e.message}`,'err');st.textContent=`❌ ${e.message}`;}btn.disabled=false;btn.textContent='🔨 Build vROM';updateBuilderState();
         });
 
-        // --- Dataset Select ---
-        document.getElementById('datasetSelect').addEventListener('change', () => {
-            const sel = document.getElementById('datasetSelect');
-            const opt = sel.selectedOptions[0];
-            const desc = document.getElementById('datasetDesc');
-            if (opt && opt.dataset.desc) {
-                desc.textContent = `${opt.dataset.desc} — source: ${opt.dataset.dataset}`;
-                desc.style.display = 'block';
-            } else {
-                desc.style.display = 'none';
-            }
-            document.getElementById('btnLoadDataset').disabled = !opt.value;
-        });
+        document.getElementById('btnBuilderDownload').addEventListener('click',()=>{if(!builderResult)return;for(const[n,c]of[['index.json',builderResult.indexJson],['chunks.json',builderResult.chunksJson],['manifest.json',builderResult.manifestJson]]){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'application/json'}));a.download=n;a.click();}log('Downloaded vROM (3 files)','ok');});
+        document.getElementById('btnBuilderLoadInEngine').addEventListener('click',()=>{if(!builderResult)return;try{if(db)db.free();db=VectorDB.load(builderResult.indexJson);log(`Loaded built vROM: ${db.len()} vectors`,'ok');updateStats();scheduleAutoSave();document.querySelector('#topNav button[data-page="engine"]').click();}catch(e){log(`Load error: ${e.message}`,'err');}});
 
-        // --- Load & Index Dataset ---
-        document.getElementById('btnLoadDataset').addEventListener('click', async () => {
-            if (!embedder) { log('Load an embedding model first!', 'warn'); return; }
-            if (!db) { log('Create an index first!', 'warn'); return; }
-
-            const sel = document.getElementById('datasetSelect');
-            const opt = sel.selectedOptions[0];
-            if (!opt || !opt.value) { log('Select a dataset first', 'warn'); return; }
-
-            const dataset = opt.dataset.dataset;
-            const config = opt.dataset.config;
-            const split = opt.dataset.split;
-            const textCol = opt.dataset.col;
-            const labelCol = opt.dataset.label;
-            const labelNames = opt.dataset.labels ? opt.dataset.labels.split(',') : null;
-            const totalRows = Math.min(parseInt(document.getElementById('datasetRows').value) || 200, 500);
-
-            const progressBar = document.getElementById('datasetProgress');
-            const progressFill = document.getElementById('datasetProgressFill');
-            const statusText = document.getElementById('datasetStatusText');
-            progressBar.style.display = 'block';
-            statusText.style.display = 'block';
-            progressFill.style.width = '0%';
-
-            const btn = document.getElementById('btnLoadDataset');
-            btn.disabled = true;
-            btn.textContent = 'Loading...';
-
+        // ─── Init ───
+        async function init() {
             try {
-                // Step 1: Determine offset
-                statusText.textContent = `Fetching rows from ${dataset}...`;
-                let offset = 0;
-                if (document.getElementById('datasetOffset').value === 'random') {
-                    // Get total size first
-                    const sizeRes = await fetch(`https://datasets-server.huggingface.co/size?dataset=${encodeURIComponent(dataset)}`);
-                    if (sizeRes.ok) {
-                        const sizeData = await sizeRes.json();
-                        const splitInfo = sizeData.size?.splits?.find(s => s.config === config && s.split === split);
-                        if (splitInfo && splitInfo.num_rows > totalRows) {
-                            offset = Math.floor(Math.random() * (splitInfo.num_rows - totalRows));
-                        }
-                    }
-                }
-
-                // Step 2: Fetch rows (paginate in chunks of 100)
-                const API = 'https://datasets-server.huggingface.co/rows';
-                const allTexts = [];
-                const allLabels = [];
-                const batchSize = 100;
-
-                for (let fetched = 0; fetched < totalRows; fetched += batchSize) {
-                    const length = Math.min(batchSize, totalRows - fetched);
-                    const url = `${API}?dataset=${encodeURIComponent(dataset)}&config=${encodeURIComponent(config)}&split=${encodeURIComponent(split)}&offset=${offset + fetched}&length=${length}`;
-                    const res = await fetch(url);
-                    if (!res.ok) throw new Error(`API returned ${res.status}`);
-                    const data = await res.json();
-
-                    for (const item of data.rows) {
-                        const text = item.row[textCol];
-                        const label = item.row[labelCol];
-                        if (text && text.trim().length > 0) {
-                            allTexts.push(text.trim());
-                            allLabels.push(label);
-                        }
-                    }
-
-                    const pct = Math.min(100, ((fetched + length) / totalRows * 30)).toFixed(0);
-                    progressFill.style.width = `${pct}%`;
-                    statusText.textContent = `Fetched ${allTexts.length} rows from Hub...`;
-                }
-
-                log(`Fetched ${allTexts.length} rows from ${dataset}`, 'ok');
-
-                // Step 3: Embed and index in batches
-                statusText.textContent = `Embedding ${allTexts.length} texts...`;
-                const embedBatchSize = 32;
-                let indexed = 0;
-                const t0 = performance.now();
-
-                for (let i = 0; i < allTexts.length; i += embedBatchSize) {
-                    const batch = allTexts.slice(i, i + embedBatchSize);
-                    const batchLabels = allLabels.slice(i, i + embedBatchSize);
-                    const output = await embed(batch);
-
-                    for (let j = 0; j < batch.length; j++) {
-                        const vec = new Float32Array(output.data.slice(j * embeddingDim, (j + 1) * embeddingDim));
-                        const labelStr = labelNames && batchLabels[j] !== undefined ? labelNames[batchLabels[j]] : String(batchLabels[j]);
-                        const metadata = JSON.stringify({ text: batch[j], label: labelStr, source: dataset });
-                        db.insert(vec, metadata);
-                        indexed++;
-                    }
-
-                    const pct = (30 + (indexed / allTexts.length) * 70).toFixed(0);
-                    progressFill.style.width = `${pct}%`;
-                    statusText.textContent = `Embedding & indexing: ${indexed}/${allTexts.length}...`;
-                }
-
-                const elapsed = (performance.now() - t0).toFixed(0);
-                progressFill.style.width = '100%';
-                statusText.textContent = `✅ Done! ${indexed} items indexed in ${elapsed}ms`;
-
-                log(`Indexed ${indexed} items from ${dataset} in ${elapsed}ms (${(indexed / (elapsed / 1000)).toFixed(0)} items/s)`, 'ok');
-                updateStats();
-                scheduleAutoSave();
-
-                // Suggest search queries
-                const suggestions = {
-                    ag_news: ['stock market crash', 'Olympic gold medal', 'new smartphone release', 'climate change summit'],
-                    rotten_tomatoes: ['hilarious comedy', 'boring and predictable', 'stunning visual effects', 'terrible acting'],
-                    tweet_sentiment: ['great news today', 'this is so frustrating', 'looking forward to the weekend'],
-                    tweet_emotion: ['I am so angry', 'feeling happy and grateful', 'this makes me sad']
-                };
-                const qs = suggestions[opt.value];
-                if (qs) {
-                    log(`💡 Try searching: "${qs[Math.floor(Math.random() * qs.length)]}"`, 'info');
-                }
-
-            } catch (e) {
-                log(`Dataset load error: ${e.message}`, 'err');
-                statusText.textContent = `❌ Error: ${e.message}`;
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Load & Index Dataset';
-                setTimeout(() => { progressBar.style.display = 'none'; }, 2000);
-            }
-        });
-
-        // --- Text Search ---
-        document.getElementById('btnTextSearch').addEventListener('click', async () => {
-            if (!embedder) { log('Load an embedding model first!', 'warn'); return; }
-            if (!db) { log('Create an index first!', 'warn'); return; }
-            if (db.len() === 0) { log('Index some data first!', 'warn'); return; }
-
-            const query = document.getElementById('textSearchQuery').value.trim();
-            if (!query) { log('Enter a search query', 'warn'); return; }
-
-            const k = parseInt(document.getElementById('textSearchK').value);
-
-            try {
-                const t0 = performance.now();
-                const output = await embed([query]);
-                const queryVec = new Float32Array(output.data.slice(0, embeddingDim));
-                const embedMs = (performance.now() - t0).toFixed(0);
-
-                const t1 = performance.now();
-                const json = db.search(queryVec, k);
-                const searchMs = (performance.now() - t1).toFixed(2);
-                const results = JSON.parse(json);
-
-                log(`Text search: embed=${embedMs}ms, search=${searchMs}ms, ${results.length} results`, 'info');
-                renderResults(results);
-            } catch (e) {
-                log(`Text search error: ${e.message}`, 'err');
-            }
-        });
-
-        // Allow Enter key for text search
-        document.getElementById('textSearchQuery').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') document.getElementById('btnTextSearch').click();
-        });
-
-        // --- Vector Insert Random ---
-        document.getElementById('btnInsertRandom').addEventListener('click', () => {
-            if (!db) { log('Create an index first!', 'warn'); return; }
-            const n = parseInt(document.getElementById('insertCount').value);
-            const dim = db.dim();
-
-            const t0 = performance.now();
-            const flat = new Float32Array(n * dim);
-            for (let i = 0; i < flat.length; i++) flat[i] = (Math.random() - 0.5) * 2;
-            db.insert_batch(flat, n);
-            const elapsed = (performance.now() - t0).toFixed(1);
-
-            log(`Inserted ${n.toLocaleString()} random vectors in ${elapsed}ms`, 'ok');
-            updateStats();
-            scheduleAutoSave();
-        });
-
-        // --- Vector Insert Manual ---
-        document.getElementById('btnInsertManual').addEventListener('click', () => {
-            if (!db) { log('Create an index first!', 'warn'); return; }
-            const raw = document.getElementById('insertManual').value.trim();
-            if (!raw) { log('Enter a vector first', 'warn'); return; }
-            const meta = document.getElementById('insertMeta').value.trim() || null;
-
-            try {
-                const values = raw.split(',').map(s => parseFloat(s.trim()));
-                const vec = new Float32Array(values);
-                const id = db.insert(vec, meta);
-                log(`Inserted vector ID=${id}`, 'ok');
-                updateStats();
-                scheduleAutoSave();
-            } catch (e) {
-                log(`Error: ${e.message}`, 'err');
-            }
-        });
-
-        // --- Vector Search ---
-        document.getElementById('btnSearch').addEventListener('click', () => {
-            if (!db) { log('Create an index first!', 'warn'); return; }
-            if (db.len() === 0) { log('Insert vectors first!', 'warn'); return; }
-
-            const k = parseInt(document.getElementById('searchK').value);
-            const ef = parseInt(document.getElementById('searchEf').value);
-            const raw = document.getElementById('searchQuery').value.trim();
-
-            let query;
-            if (raw) {
-                query = new Float32Array(raw.split(',').map(s => parseFloat(s.trim())));
-            } else {
-                query = randomVector(db.dim());
-            }
-
-            try {
-                const t0 = performance.now();
-                const json = db.search_with_ef(query, k, ef);
-                const elapsed = (performance.now() - t0).toFixed(2);
-                const results = JSON.parse(json);
-
-                log(`Vector search: ${results.length} results in ${elapsed}ms`, 'info');
-                renderResults(results);
-            } catch (e) {
-                log(`Search error: ${e.message}`, 'err');
-            }
-        });
-
-        // --- Benchmark ---
-        document.getElementById('btnBenchmark').addEventListener('click', () => {
-            if (!db) { log('Create an index first!', 'warn'); return; }
-            if (db.len() === 0) { log('Insert vectors first!', 'warn'); return; }
-
-            const k = parseInt(document.getElementById('searchK').value);
-            const ef = parseInt(document.getElementById('searchEf').value);
-            const dim = db.dim();
-            const numQueries = 100;
-            const queries = [];
-            for (let i = 0; i < numQueries; i++) queries.push(randomVector(dim));
-
-            const perfBar = document.getElementById('perfBar');
-            const perfFill = document.getElementById('perfFill');
-            perfBar.style.display = 'block';
-
-            const t0 = performance.now();
-            for (const q of queries) db.search_with_ef(q, k, ef);
-            const totalMs = performance.now() - t0;
-            const avgMs = (totalMs / numQueries).toFixed(3);
-            const qps = (numQueries / (totalMs / 1000)).toFixed(0);
-            const pct = Math.max(0, Math.min(100, (1 - Math.log10(parseFloat(avgMs) + 0.01) / 2) * 100));
-            perfFill.style.width = `${pct}%`;
-
-            log(`Benchmark: ${numQueries} queries — avg ${avgMs}ms/query — ${qps} QPS`, 'ok');
-        });
-
-        // --- Export / Import ---
-        document.getElementById('btnExport').addEventListener('click', () => {
-            if (!db) { log('No index to export', 'warn'); return; }
-            try {
-                const json = db.save();
-                const blob = new Blob([json], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'vecdb-index.json';
-                a.click();
-                URL.revokeObjectURL(url);
-                log(`Exported index (${(json.length / 1024).toFixed(1)} KB)`, 'ok');
-            } catch (e) {
-                log(`Export error: ${e.message}`, 'err');
-            }
-        });
-
-        document.getElementById('btnImport').addEventListener('click', () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-            input.onchange = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                try {
-                    const json = await file.text();
-                    if (db) db.free();
-                    db = VectorDB.load(json);
-                    log(`Imported index: ${db.len()} vectors, dim=${db.dim()}`, 'ok');
-                    updateStats();
-                    scheduleAutoSave();
-                } catch (e) {
-                    log(`Import error: ${e.message}`, 'err');
-                }
-            };
-            input.click();
-        });
-
-        // --- Reset ---
-        document.getElementById('btnReset').addEventListener('click', async () => {
-            if (db) {
-                db.free();
-                db = null;
-            }
-            await opfsClear();
-            document.getElementById('results').innerHTML = '';
-            document.getElementById('perfBar').style.display = 'none';
-            updateStats();
-            setOpfsIndicator('saved', 'OPFS: cleared');
-            log('All data reset and cleared from storage', 'warn');
-        });
-
-        // =====================================================================
-        // INITIALIZATION
-        // =====================================================================
-        (async () => {
-            try {
-                // Step 1: Load WASM
-                document.getElementById('loadingText').textContent = 'Loading WASM module...';
+                document.getElementById('loadingText').textContent='Loading WASM...';
                 await initWasm();
-                document.getElementById('wasmStatus').textContent = '✅ WASM';
-                document.getElementById('wasmStatus').classList.add('active');
-                log('WASM module loaded', 'ok');
-
-                // Step 2: Init OPFS
-                document.getElementById('loadingText').textContent = 'Initializing storage...';
-                if (navigator.storage?.persist) {
-                    await navigator.storage.persist();
-                }
-                document.getElementById('opfsStatus').textContent = '✅ OPFS';
-                document.getElementById('opfsStatus').classList.add('active');
-
-                // Step 3: Try to restore index from OPFS
-                document.getElementById('loadingText').textContent = 'Restoring saved data...';
-                const savedJson = await opfsLoad();
-                if (savedJson) {
-                    try {
-                        db = VectorDB.load(savedJson);
-                        log(`Restored index from OPFS: ${db.len()} vectors, dim=${db.dim()}`, 'ok');
-                        setOpfsIndicator('saved', `OPFS: restored (${(savedJson.length / 1024).toFixed(0)} KB)`);
-                    } catch (err) {
-                        log(`Failed to restore saved index: ${err.message}`, 'warn');
-                        db = new VectorDB(384, 'cosine', 16, 128, 40);
-                        log('Created fresh index (384d, cosine)', 'info');
-                    }
-                } else {
-                    db = new VectorDB(384, 'cosine', 16, 128, 40);
-                    log('No saved index found — created fresh (384d, cosine)', 'info');
-                    setOpfsIndicator('saved', 'OPFS: no saved data');
-                }
-
-                updateStats();
-                await updateStorageStat();
-
-                // Show app
-                document.getElementById('loading').classList.add('hidden');
-                document.getElementById('app').classList.remove('hidden');
-
-                log('VecDB-WASM v2 ready — load an embedding model to index text', 'ok');
-
-            } catch (e) {
-                document.getElementById('loadingText').textContent = `Error: ${e.message}`;
-                document.getElementById('wasmStatus').textContent = '❌ Error';
-                log(`Init error: ${e.message}`, 'err');
-                console.error(e);
-            }
-        })();
+                document.getElementById('wasmStatus').classList.add('active');document.getElementById('wasmStatus').textContent='✅ WASM';log('WASM loaded (172 KB)','ok');
+                document.getElementById('loadingText').textContent='Checking storage...';
+                const saved=await opfsLoad();
+                if(saved){try{db=VectorDB.load(saved);log(`Restored ${db.len()} vectors from OPFS`,'ok');setOpfsIndicator('saved',`OPFS: restored (${(saved.length/1e6).toFixed(1)} MB)`);}catch(e){log(`OPFS restore failed: ${e.message}`,'warn');db=new VectorDB(384,'cosine',16,128,40);}}
+                else{db=new VectorDB(384,'cosine',16,128,40);setOpfsIndicator('saved','OPFS: empty');}
+                document.getElementById('opfsStatus').classList.add('active');document.getElementById('opfsStatus').textContent='✅ Storage';
+                updateStats();await updateStorageStat();
+                document.getElementById('loading').classList.add('hidden');document.getElementById('app').classList.remove('hidden');
+                renderVromRegistry();renderBuilderSources();
+                log('VecDB-WASM v3 ready — Engine + vROM Hub + Builder','ok');
+            } catch(err) { document.getElementById('loadingText').textContent=`Error: ${err.message}`; }
+        }
+        init();
     </script>
 </body>
 </html>
