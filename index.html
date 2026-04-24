@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VecDB-WASM — Vector Search Engine + vROM Hub</title>
+    <title>vROM.js — Vector Search Engine + vROM Hub</title>
     <style>
         :root {
             --bg: #0f1117;
@@ -524,7 +524,7 @@
 </head>
 <body>
     <header>
-        <h1>🔍 VecDB-WASM</h1>
+        <h1>🔍 vROM.js</h1>
         <span class="badge" id="wasmStatus">⏳ WASM</span>
         <span class="badge" id="modelStatus">⏳ Embeddings</span>
         <span class="badge" id="opfsStatus">⏳ Storage</span>
@@ -665,7 +665,7 @@
                     <h2><span class="icon">🏗️</span> Architecture</h2>
                     <div class="architecture-diagram">
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                          VecDB-WASM v3 + vROM Architecture                               │
+│                          vROM.js v3 + vROM Architecture                               │
 ├──────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                          │
 │   ┌──────────────────┐    ┌───────────────────────┐    ┌───────────────────────────────┐ │
@@ -700,7 +700,7 @@
         <div class="container">
             <div style="margin-bottom:1.5rem">
                 <h2 style="font-size:1.5rem;margin-bottom:0.5rem">🧩 vROM Hub</h2>
-                <p style="color:var(--text-dim);font-size:0.9rem">Pre-computed HNSW index packages — plug-and-play RAG cartridges for VecDB-WASM.<br>Load a vROM to instantly search documentation without embedding anything locally.</p>
+                <p style="color:var(--text-dim);font-size:0.9rem">Pre-computed HNSW index packages — plug-and-play RAG cartridges for vROM.js.<br>Load a vROM to instantly search documentation without embedding anything locally.</p>
             </div>
             <div class="vrom-loaded-banner hidden" id="vromLoadedBanner">
                 <div class="vrom-info"><h3 id="vromLoadedName">—</h3><div class="meta" id="vromLoadedMeta">—</div></div>
@@ -773,7 +773,7 @@
     </div>
 
     <script type="module">
-        import initWasm, { VectorDB } from './pkg/vecdb_wasm.js';
+        import initWasm, { VectorDB } from './pkg/vrom_js.js';
 
         let db = null, embeddingDim = null, autoSaveTimer = null;
         let modelReady = false;
@@ -1056,7 +1056,7 @@
             st.textContent=`Embedding ${ac.length} chunks...`;const texts=ac.map(c=>c.text),embs=[];for(let i=0;i<texts.length;i+=32){const b=texts.slice(i,i+32),o=await embed(b);for(let j=0;j<b.length;j++)embs.push(Array.from(o.data.slice(j*embeddingDim,(j+1)*embeddingDim)));pf.style.width=`${(10+(embs.length/texts.length)*60).toFixed(0)}%`;st.textContent=`Embedding: ${embs.length}/${texts.length}...`;}
             st.textContent='Building HNSW...';pf.style.width='75%';const tdb=new VectorDB(embeddingDim,'cosine',16,128,40);for(let i=0;i<ac.length;i++){tdb.insert(new Float32Array(embs[i]),JSON.stringify({chunk_id:ac[i].chunk_id,text:ac[i].text,source_file:ac[i].source_file,section_heading:ac[i].section_heading,prev_chunk_id:ac[i].prev_chunk_id,next_chunk_id:ac[i].next_chunk_id,url:ac[i].url,doc_title:ac[i].doc_title}));}pf.style.width='90%';
             st.textContent='Serializing...';const ij=tdb.save();tdb.free();const tt=ac.reduce((s,c)=>s+c.token_estimate,0);const ch=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(texts.join(''))))).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,16);
-            const mf={vrom_id:vid,version:ver,description:desc,source:builderSources.map(s=>s.url||s.source_file).join(', '),embedding_spec:{model:document.getElementById('modelSelect').value,dimensions:embeddingDim,quantization:document.getElementById('modelDtype').value,distance_metric:'cosine',normalized:true},hnsw_config:{m:16,m_max0:32,ef_construction:128,ef_search:40,metric:'Cosine'},vector_count:ac.length,total_tokens:tt,total_chunks:ac.length,corpus_hash:ch,created_at:new Date().toISOString(),chunk_strategy:{method:'section_aware',max_tokens:mt,overlap:0,preserve_code_blocks:true,linked_list_pointers:true},files:{index:'index.json',chunks:'chunks.json',manifest:'manifest.json'},compatibility:{vecdb_wasm:'>=0.1.0',load_method:'VectorDB.load(json)'}};
+            const mf={vrom_id:vid,version:ver,description:desc,source:builderSources.map(s=>s.url||s.source_file).join(', '),embedding_spec:{model:document.getElementById('modelSelect').value,dimensions:embeddingDim,quantization:document.getElementById('modelDtype').value,distance_metric:'cosine',normalized:true},hnsw_config:{m:16,m_max0:32,ef_construction:128,ef_search:40,metric:'Cosine'},vector_count:ac.length,total_tokens:tt,total_chunks:ac.length,corpus_hash:ch,created_at:new Date().toISOString(),chunk_strategy:{method:'section_aware',max_tokens:mt,overlap:0,preserve_code_blocks:true,linked_list_pointers:true},files:{index:'index.json',chunks:'chunks.json',manifest:'manifest.json'},compatibility:{vrom_js:'>=0.1.0',load_method:'VectorDB.load(json)'}};
             const cj=JSON.stringify(ac.map(c=>({chunk_id:c.chunk_id,text:c.text,source_file:c.source_file,section_heading:c.section_heading,token_estimate:c.token_estimate,prev_chunk_id:c.prev_chunk_id,next_chunk_id:c.next_chunk_id,url:c.url,doc_title:c.doc_title})),null,2);
             builderResult={indexJson:ij,chunksJson:cj,manifestJson:JSON.stringify(mf,null,2),manifest:mf,allChunks:ac};pf.style.width='100%';const el=((performance.now()-t0)/1000).toFixed(1);st.textContent=`✅ Built in ${el}s`;
             document.getElementById('builderPreview').classList.remove('hidden');document.getElementById('bpVectors').textContent=ac.length.toLocaleString();document.getElementById('bpTokens').textContent=tt>1000?`${(tt/1000).toFixed(0)}K`:tt;document.getElementById('bpSize').textContent=`${(ij.length/1048576).toFixed(1)} MB`;document.getElementById('bpTime').textContent=`${el}s`;

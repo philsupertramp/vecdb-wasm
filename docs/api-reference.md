@@ -4,7 +4,7 @@
 
 ```typescript
 // Classes
-import { AgentMemory, VromCache } from 'vecdb-wasm';
+import { AgentMemory, VromCache } from 'vrom.js';
 
 // Types (type-only imports)
 import type {
@@ -20,7 +20,7 @@ import type {
   VromRegistry,
   VromRegistryEntry,
   VromManifest,
-} from 'vecdb-wasm';
+} from 'vrom.js';
 ```
 
 ---
@@ -433,7 +433,7 @@ After calling `destroy()`, the instance cannot be reused. Create a new `AgentMem
 Low-level OPFS cache and registry manager. Used internally by `AgentMemory`, but exported for advanced use cases.
 
 ```typescript
-import { VromCache } from 'vecdb-wasm';
+import { VromCache } from 'vrom.js';
 ```
 
 ### Constructor
@@ -494,7 +494,7 @@ new VromCache(registryUrl?: string)
 
 The raw WASM HNSW engine, exposed via `wasm-bindgen`. This is what `AgentMemory` uses internally. You can use it directly for custom vector search without the vROM/worker layer.
 
-> **Note:** This is exposed from the `wasm-pkg/` directory, not from the main `vecdb-wasm` package export. It's documented here for completeness.
+> **Note:** This is exposed from the `wasm-pkg/` directory, not from the main `vrom.js` package export. It's documented here for completeness.
 
 ### Constructor
 

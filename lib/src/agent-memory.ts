@@ -65,7 +65,7 @@ export class AgentMemory {
      */
     constructor(options: AgentMemoryOptions = {}) {
         this.#workerPath = options.workerPath ?? new URL('./embed-worker.js', import.meta.url).href;
-        this.#wasmPkgPath = options.wasmPkgPath ?? new URL('../wasm-pkg/vecdb_wasm.js', import.meta.url).href;
+        this.#wasmPkgPath = options.wasmPkgPath ?? new URL('../wasm-pkg/vrom_js.js', import.meta.url).href;
         const level = options.logLevel ?? 'warn';
         this.#logLevel = LOG_LEVELS[level];
         this.#cache = new VromCache(options.registryUrl);

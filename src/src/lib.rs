@@ -1,4 +1,4 @@
-//! VecDB-WASM: A WebAssembly vector search database engine.
+//! vROM.js: A WebAssembly vector search database engine.
 //!
 //! Features:
 //! - HNSW (Hierarchical Navigable Small World) approximate nearest neighbor search

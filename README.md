@@ -1,5 +1,5 @@
 ---
-title: VecDB-WASM
+title: vROM.js Demo
 emoji: 🔍
 colorFrom: indigo
 colorTo: purple
@@ -9,9 +9,13 @@ license: mit
 short_description: WASM vector DB + AgentMemory SDK for browser RAG
 ---
 
-# 🔍 VecDB-WASM
+# 🔍 vROM.js
 
 A WebAssembly vector search database with a zero-boilerplate SDK for browser-based RAG. Sub-millisecond HNSW search, background ONNX embedding, OPFS-cached vROM cartridges, and context hot-swapping — 100% client-side.
+
+## Terminology
+- `vROM.js`: The vector search database
+- `vROM`: A vector read-only memory, heavily inspired by ROMs for game emulators
 
 ## 📖 Documentation
 
@@ -64,11 +68,11 @@ pkg/                              Pre-built WASM bindings for the Space UI
 ## Quick Start
 
 ```bash
-npm install vecdb-wasm
+npm install vrom.js
 ```
 
 ```typescript
-import { AgentMemory } from 'vecdb-wasm';
+import { AgentMemory } from 'vrom.js';
 
 const memory = new AgentMemory();
 await memory.init();

@@ -1,5 +1,5 @@
 {
-  "name": "vecdb-wasm",
+  "name": "vrom.js",
   "version": "3.2.0",
   "description": "Zero-boilerplate RAG for browser AI agents. WASM HNSW vector search + background ONNX embedding + OPFS-cached vROM cartridges.",
   "license": "MIT",
@@ -22,16 +22,20 @@
       "import": {
         "types": "./dist/embed-worker.d.ts",
         "default": "./dist/embed-worker.js"
+      },
+      "require": {
+        "types": "./dist/embed-worker.d.ts",
+        "default": "./dist/embed-worker.js"
       }
     },
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
-    "wasm-pkg/vecdb_wasm.js",
-    "wasm-pkg/vecdb_wasm.d.ts",
-    "wasm-pkg/vecdb_wasm_bg.wasm",
-    "wasm-pkg/vecdb_wasm_bg.wasm.d.ts",
+    "wasm-pkg/vrom_js.js",
+    "wasm-pkg/vrom_js.d.ts",
+    "wasm-pkg/vrom_js_bg.wasm",
+    "wasm-pkg/vrom_js_bg.wasm.d.ts",
     "README.md",
     "LICENSE"
   ],
