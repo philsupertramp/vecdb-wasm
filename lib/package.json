@@ -1,6 +1,6 @@
 {
   "name": "vrom.js",
-  "version": "3.2.4",
+  "version": "3.3.0",
   "description": "Zero-boilerplate RAG for browser AI agents. WASM HNSW vector search + background ONNX embedding + OPFS-cached vROM cartridges.",
   "license": "MIT",
   "type": "module",
@@ -32,10 +32,9 @@
   },
   "files": [
     "dist",
-    "wasm-pkg/vrom_js.js",
-    "wasm-pkg/vrom_js.d.ts",
-    "wasm-pkg/vrom_js_bg.wasm",
-    "wasm-pkg/vrom_js_bg.wasm.d.ts",
+    "wasm-pkg/*js",
+    "wasm-pkg/*.wasm",
+    "wasm-pkg/*.d.ts",
     "README.md",
     "LICENSE"
   ],
