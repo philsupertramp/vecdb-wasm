@@ -14,7 +14,8 @@ import type {
     DownloadProgress,
 } from './types.js';
 
-const LOG_LEVELS: Record<string, number> = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
+const LOG_LEVELS = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 } as const satisfies Record<string, number>;
+type LogLevel = keyof typeof LOG_LEVELS;
 
 /**
  * AgentMemory — zero-boilerplate RAG for browser AI agents.
@@ -56,13 +57,14 @@ export class AgentMemory {
     constructor(options: AgentMemoryOptions = {}) {
         this.#workerPath = options.workerPath ?? new URL('./embed-worker.js', import.meta.url).href;
         this.#wasmPkgPath = options.wasmPkgPath ?? new URL('../wasm-pkg/vecdb_wasm.js', import.meta.url).href;
-        this.#logLevel = LOG_LEVELS[options.logLevel ?? 'warn'] ?? LOG_LEVELS.warn;
+        const level = options.logLevel ?? 'warn';
+        this.#logLevel = LOG_LEVELS[level];
         this.#cache = new VromCache(options.registryUrl);
     }
 
     // ─── Logging ───────────────────────────────────────────────────────
 
-    #log(level: string, ...args: any[]) {
+    #log(level: LogLevel, ...args: any[]) {
         if (LOG_LEVELS[level] <= this.#logLevel) {
             const prefix = `[AgentMemory:${level}]`;
             if (level === 'error') console.error(prefix, ...args);
