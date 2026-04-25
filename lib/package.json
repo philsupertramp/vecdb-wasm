@@ -1,6 +1,6 @@
 {
   "name": "vrom.js",
-  "version": "3.4.0",
+  "version": "4.0.0",
   "description": "Zero-boilerplate RAG for browser AI agents. WASM HNSW vector search + background ONNX embedding + OPFS-cached vROM cartridges.",
   "license": "MIT",
   "type": "module",
@@ -18,6 +18,12 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./web": {
+      "import": {
+        "types": "./dist/web.d.ts",
+        "default": "./dist/web.js"
+      }
+    },
     "./embed-worker": {
       "import": {
         "types": "./dist/embed-worker.d.ts",
@@ -28,21 +34,22 @@
         "default": "./dist/embed-worker.js"
       }
     },
+    "./wasm-bundler/*": "./wasm-bundler/*",
+    "./wasm-web/*": "./wasm-web/*",
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
-    "wasm-pkg/*.json",
-    "wasm-pkg/*.js",
-    "wasm-pkg/*.wasm",
-    "wasm-pkg/*.d.ts",
+    "wasm-bundler/*",
+    "wasm-web/*",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build:wasm": "wasm-pack build ../src --target bundler --out-dir ../lib/wasm-pkg --release && rm -f ../lib/wasm-pkg/.gitignore",
+    "build:wasm-bundler": "wasm-pack build ../src --target bundler --out-dir ../lib/wasm-bundler --release && rm -f ../lib/wasm-bundler/.gitignore",
+    "build:wasm-web": "wasm-pack build ../src --target web --out-dir ../lib/wasm-web --release && rm -f ../lib/wasm-web/.gitignore",
     "build:js": "tsdown",
-    "build": "npm run build:wasm && npm run build:js",
+    "build": "npm run build:wasm-bundler && npm run build:wasm-web && npm run build:js",
     "build:check": "tsc --noEmit",
     "lint": "publint",
     "lint:types": "attw --pack . --ignore-rules no-resolution cjs-resolves-to-esm",

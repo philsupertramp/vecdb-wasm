@@ -13,6 +13,7 @@ import type {
     VromRegistryEntry,
     DownloadProgress,
 } from './types.js';
+export type WasmLoader = () => Promise<{ VectorDB: VectorDBConstructor }>;
 
 const LOG_LEVELS = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 } as const satisfies Record<string, number>;
 type LogLevel = keyof typeof LOG_LEVELS;
@@ -34,7 +35,7 @@ type LogLevel = keyof typeof LOG_LEVELS;
  * const context = memory.formatContext(results, { maxTokens: 2000 });
  * ```
  */
-export class AgentMemory {
+export class AgentMemoryCore {
     #db: VectorDB | null = null;
     #worker: Worker | null = null;
     #pending = new Map<string, { resolve: (v: any) => void; reject: (e: Error) => void }>();
@@ -51,7 +52,7 @@ export class AgentMemory {
     #logLevel: number;
 
     #workerPath: string;
-    #wasmPkgPath: string;
+    #wasmLoader: WasmLoader; // <-- Store the injected loader
 
     /** Optional progress callback for model downloads. Set via {@link onProgress}. */
     _onProgress?: (p: { file: string; loaded: number; total: number }) => void;
@@ -63,9 +64,11 @@ export class AgentMemory {
      *
      * @param options - Configuration options. All fields are optional with sensible defaults.
      */
-    constructor(options: AgentMemoryOptions = {}) {
+    constructor(wasmLoader: WasmLoader, options: AgentMemoryOptions = {}) {
+        this.#wasmLoader = wasmLoader;
+        
+        // Remove the #wasmPkgPath fallback logic entirely!
         this.#workerPath = options.workerPath ?? new URL('./embed-worker.js', import.meta.url).href;
-        this.#wasmPkgPath = options.wasmPkgPath ?? new URL('../wasm-pkg/vrom_js.js', import.meta.url).href;
         const level = options.logLevel ?? 'warn';
         this.#logLevel = LOG_LEVELS[level];
         this.#cache = new VromCache(options.registryUrl);
@@ -189,8 +192,8 @@ export class AgentMemory {
         if (this.#initialized) return;
         this.#log('info', 'Initializing...');
 
-        const wasm = await import(/* @vite-ignore */ this.#wasmPkgPath);
-        await wasm.default();
+        // Execute the injected loading logic!
+        const wasm = await this.#wasmLoader();
         this.#VectorDB = wasm.VectorDB;
 
         this.#setupWorker();

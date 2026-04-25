@@ -1,12 +1,15 @@
-import * as wasm from '../wasm-bundler/vrom_js.js';
+import initWasm, * as wasm from '../wasm-web/vrom_js.js';
 import { AgentMemoryCore } from './agent-memory.js';
 import type { AgentMemoryOptions } from './types.js';
 export { VromCache } from './vrom-cache.js';
 
 export class AgentMemory extends AgentMemoryCore {
     constructor(options?: AgentMemoryOptions) {
-        // Inject the pre-resolved bundler WASM
-        super(async () => wasm, options);
+        // Inject the manual fetch/init logic
+        super(async () => {
+            await initWasm(); // This triggers the browser fetch()
+            return wasm;
+        }, options);
     }
 }
 
@@ -24,3 +27,4 @@ export type {
     VromRegistryEntry,
     VromManifest,
 } from './types.js';
+
