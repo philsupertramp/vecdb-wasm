@@ -5,9 +5,8 @@ export { VromCache } from './vrom-cache.js';
 
 export class AgentMemory extends AgentMemoryCore {
     constructor(options?: AgentMemoryOptions) {
-        // Inject the manual fetch/init logic
         super(async () => {
-            await initWasm(); // This triggers the browser fetch()
+            await initWasm(options?.wasmPkgPath); 
             return wasm;
         }, options);
     }

@@ -192,7 +192,6 @@ export class AgentMemoryCore {
         if (this.#initialized) return;
         this.#log('info', 'Initializing...');
 
-        // Execute the injected loading logic!
         const wasm = await this.#wasmLoader();
         this.#VectorDB = wasm.VectorDB;
 
