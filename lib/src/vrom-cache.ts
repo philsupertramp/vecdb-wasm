@@ -57,7 +57,7 @@ export class VromCache {
 
     async #getVromDir(vromId: string): Promise<FileSystemDirectoryHandle> {
         const root = await this.#getRoot();
-        return root.getDirectoryHandle(vromId, { create: true });
+        return await root.getDirectoryHandle(vromId, { create: true });
     }
 
     async #readFile(dir: FileSystemDirectoryHandle, name: string): Promise<string | null> {
