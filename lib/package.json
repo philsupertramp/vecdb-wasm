@@ -1,6 +1,6 @@
 {
   "name": "vrom.js",
-  "version": "4.0.2",
+  "version": "4.0.3",
   "description": "Zero-boilerplate RAG for browser AI agents. WASM HNSW vector search + background ONNX embedding + OPFS-cached vROM cartridges.",
   "license": "MIT",
   "type": "module",

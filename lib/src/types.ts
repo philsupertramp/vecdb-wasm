@@ -119,6 +119,16 @@ export interface AgentMemoryOptions {
     registryUrl?: string;
     /** Log level. Default: 'warn' */
     logLevel?: 'silent' | 'error' | 'warn' | 'info' | 'debug';
+
+    /* Dedicated field for SaaS authentication.
+     * Automatically maps to the 'x-api-key' header.
+     */
+    apiKey?: string;
+
+    /* Custom headers for all registry and vROM asset requests
+     * Useful for custom proxy auth, User-Agent, etc.
+     */
+    headers?: Record<string, string> | Headers;
 }
 
 export interface MountOptions {

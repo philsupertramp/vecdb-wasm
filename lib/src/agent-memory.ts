@@ -71,7 +71,11 @@ export class AgentMemoryCore {
         this.#workerPath = options.workerPath ?? new URL('./embed-worker.js', import.meta.url).href;
         const level = options.logLevel ?? 'warn';
         this.#logLevel = LOG_LEVELS[level];
-        this.#cache = new VromCache(options.registryUrl);
+        const headers = new Headers(options.headers || {});
+        if (options.apiKey) {
+          headers.set('x-api-key', options.apiKey);
+        }
+        this.#cache = new VromCache(headers, options.registryUrl);
     }
 
     // ─── Logging ───────────────────────────────────────────────────────

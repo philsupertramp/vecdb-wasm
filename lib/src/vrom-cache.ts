@@ -34,6 +34,7 @@ export class VromCache {
     #registryUrl: string;
     #registry: VromRegistry | null = null;
     #rootDir: FileSystemDirectoryHandle | null = null;
+    requestHeaders: Headers;
 
     /**
      * Create a VromCache instance.
@@ -41,8 +42,9 @@ export class VromCache {
      * @param registryUrl - URL to the vROM registry JSON.
      *   Defaults to the official registry on HF Hub.
      */
-    constructor(registryUrl?: string) {
+    constructor(headers: Headers, registryUrl?: string) {
         this.#registryUrl = registryUrl || DEFAULT_REGISTRY_URL;
+        this.requestHeaders = headers || {};
     }
 
     // ─── OPFS Helpers ─────────────────────────────────────────────────
@@ -124,7 +126,7 @@ export class VromCache {
         }
 
         // Fetch from CDN
-        const resp = await fetch(this.#registryUrl);
+        const resp = await fetch(this.#registryUrl, {headers: this.requestHeaders});
         if (!resp.ok) throw new Error(`Registry fetch failed: ${resp.status}`);
         const text = await resp.text();
         this.#registry = JSON.parse(text);
@@ -229,14 +231,14 @@ export class VromCache {
 
         // Manifest
         onProgress?.({ phase: 'manifest', file: 'manifest.json', loaded: 0, total: 1 });
-        const mr = await fetch(entry.files.manifest);
+        const mr = await fetch(entry.files.manifest, {headers: this.requestHeaders});
         if (!mr.ok) throw new Error(`Manifest fetch failed: ${mr.status}`);
         await this.#writeFile(dir, 'manifest.json', await mr.text());
         onProgress?.({ phase: 'manifest', file: 'manifest.json', loaded: 1, total: 1 });
 
         // Index (streamed with progress)
         onProgress?.({ phase: 'index', file: 'index.json', loaded: 0, total: 0 });
-        const ir = await fetch(entry.files.index);
+        const ir = await fetch(entry.files.index, {headers: this.requestHeaders});
         if (!ir.ok) throw new Error(`Index fetch failed: ${ir.status}`);
 
         const total = parseInt(ir.headers.get('content-length') || '0');
