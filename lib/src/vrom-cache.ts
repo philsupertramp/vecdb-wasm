@@ -7,8 +7,6 @@ import type {
 } from './types.js';
 
 const OPFS_ROOT = 'vecdb-vroms';
-const REGISTRY_TTL_MS = 3_600_000; // 1 hour
-
 const DEFAULT_REGISTRY_URL =
     'https://huggingface.co/datasets/philipp-zettl/vrom-registry/resolve/main/registry.json';
 
@@ -104,36 +102,47 @@ export class VromCache {
     /**
      * Fetch the vROM registry.
      *
-     * Uses a three-tier lookup: in-memory cache → OPFS cache (1-hour TTL) → CDN fetch.
+     * Uses a three-tier lookup: in-memory cache → OPFS cache  → CDN fetch.
+     * Cache validation is done via requests ETag stored in a ETag cache
      * The registry is written to OPFS on a best-effort basis after fetching.
      *
      * @returns The full registry object containing all available vROM entries
      * @throws If the CDN fetch fails and no cached copy exists
      */
     async getRegistry(): Promise<VromRegistry> {
+        const root = await this.#getRoot();
+        const cachedText = await this.#readFile(root, 'registry.json');
+        const storedEtag = await this.#readFile(root, 'registry.etag'); // Store ETag separately
+
+        // 1. If we have it in memory already, just return it
         if (this.#registry) return this.#registry;
 
-        const root = await this.#getRoot();
-
-        // Check OPFS cache freshness
-        const modTime = await this.#fileModTime(root, 'registry.json');
-        if (modTime && Date.now() - modTime < REGISTRY_TTL_MS) {
-            const cached = await this.#readFile(root, 'registry.json');
-            if (cached) {
-                this.#registry = JSON.parse(cached);
-                return this.#registry!;
-            }
-        }
-
-        // Fetch from CDN
-        const resp = await fetch(this.#registryUrl, {headers: this.requestHeaders});
-        if (!resp.ok) throw new Error(`Registry fetch failed: ${resp.status}`);
-        const text = await resp.text();
-        this.#registry = JSON.parse(text);
+        // 2. Prepare the request with the ETag
+        const headers = new Headers(this.requestHeaders);
+        if (storedEtag) headers.set('If-None-Match', storedEtag);
 
         try {
-            await this.#writeFile(root, 'registry.json', text);
-        } catch { /* best-effort cache */ }
+            const resp = await fetch(this.#registryUrl, { headers });
+
+            if (resp.status === 304 && cachedText) {
+                // Server says nothing changed!
+                this.#registry = JSON.parse(cachedText);
+            } else if (resp.ok) {
+                // New data or no cache exists
+                const text = await resp.text();
+                const newEtag = resp.headers.get('ETag');
+                
+                this.#registry = JSON.parse(text);
+                
+                // Background: Update OPFS
+                this.#writeFile(root, 'registry.json', text).catch(() => {});
+                if (newEtag) this.#writeFile(root, 'registry.etag', newEtag).catch(() => {});
+            }
+        } catch (e) {
+            // Fallback: If network is down, try to use stale cache as a last resort
+            if (cachedText) this.#registry = JSON.parse(cachedText);
+            else throw e;
+        }
 
         return this.#registry!;
     }
