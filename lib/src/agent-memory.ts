@@ -316,7 +316,7 @@ export class AgentMemoryCore {
         const expandContext = options.expandContext ?? false;
         const contextWindow = options.contextWindow ?? 1;
 
-        const output = await this.#embed([query]);
+        const output = await this.embed([query]);
         const vec = new Float32Array(output.data.slice(0, this.#embeddingDim!));
 
         const rawJson = options.efSearch
