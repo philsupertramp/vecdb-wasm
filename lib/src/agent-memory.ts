@@ -166,14 +166,6 @@ export class AgentMemoryCore {
         });
     }
 
-    async #embed(texts: string[]): Promise<{ data: Float32Array; dims: number[] }> {
-        if (!this.#modelReady) throw new Error('No embedding model loaded');
-        const id = crypto.randomUUID();
-        return new Promise((resolve, reject) => {
-            this.#pending.set(id, { resolve, reject });
-            this.#worker!.postMessage({ type: 'embed', texts, id });
-        });
-    }
 
     // ─── Public API ────────────────────────────────────────────────────
 
@@ -370,6 +362,30 @@ export class AgentMemoryCore {
         return results;
     }
 
+    /**
+     * Embed a text document.
+     *
+     * The document is embedded in the background worker (~50ms), then
+     * returned
+     *
+     * @param text - Natural language string
+     * @returns The embedding
+     *
+     * @throws `'Embedding model not loaded'`
+     *
+     * @example
+     * ```ts
+     * const results = await memory.embed('how to fine-tune');
+     * ```
+     */
+    async embed(texts: string[]): Promise<{ data: Float32Array; dims: number[] }> {
+        if (!this.#modelReady) throw new Error('No embedding model loaded');
+        const id = crypto.randomUUID();
+        return new Promise((resolve, reject) => {
+            this.#pending.set(id, { resolve, reject });
+            this.#worker!.postMessage({ type: 'embed', texts, id });
+        });
+    }
     /**
      * Format search results as a context string for LLM prompt injection.
      *
