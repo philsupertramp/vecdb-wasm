@@ -271,7 +271,7 @@ export class AgentMemoryCore {
         if (this.#activeManifest.tombstones) {
             this.loadTombstones(this.#activeManifest.tombstones);
         }
-        this.#log('info', `Loaded ${this.#tombstones.len()} tombstones!`);
+        this.#log('info', `Loaded ${this.#tombstones.size} tombstones!`);
 
         // Model diffing
         const requiredModel = this.#activeManifest.embedding_spec?.model || entry.model;
