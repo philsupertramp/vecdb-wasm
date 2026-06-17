@@ -1,289 +1,199 @@
----
-title: vROM.js Demo
-emoji: 🔍
-colorFrom: indigo
-colorTo: purple
-sdk: static
-pinned: false
-license: mit
-short_description: WASM vector DB + AgentMemory SDK for browser RAG
----
+# vROM.js
 
-# 🔍 vROM.js
+A high-performance, local-first vector database compiled to WebAssembly. 
+`vROM.js` provides seamless LLM context monitoring and agent memory management. 
+It allows you to mount and query local AI knowledge cartridges directly in Node.js or the browser.
 
-A WebAssembly vector search database with a zero-boilerplate SDK for browser-based RAG. Sub-millisecond HNSW search, background ONNX embedding, OPFS-cached vROM cartridges, and context hot-swapping — 100% client-side.
+## 🚀 Features
 
-## Terminology
-- `vROM.js`: The vector search database
-- `vROM`: A vector read-only memory, heavily inspired by ROMs for game emulators
+* **Universal Compatibility:** Native support for both Node.js (`vrom.js`) and Web environments (`vrom.js/web`).
+* **WebAssembly Native:** Core HNSW indexing and distance calculations are written in Rust and compiled to Wasm for near-native computational speeds.
+* **Non-Blocking Architecture:** Offloads heavy embedding and search computations using dedicated Web Workers in the browser.
+* **Agent Memory Management:** First-class TypeScript support for context expansion, chunk tracking, and persistent state saving.
 
-## 📖 Documentation
-
-| | |
-|---|---|
-| **[Getting Started](./docs/getting-started.md)** | Installation, quick start, 5-minute tutorial, framework integration |
-| **[API Reference](./docs/api-reference.md)** | Every class, method, option, and type — exhaustively documented |
-| **[Guides](./docs/guides.md)** | vROMs, context expansion, custom knowledge bases, Python CLI, performance tuning |
-| **[Architecture](./docs/architecture.md)** | HNSW internals, WASM engine, worker protocol, OPFS cache, vROM format spec |
-
-## Repository Layout
-
-This is a **source-only repository**. All build artifacts (`pkg/`, `lib/wasm-pkg/`, `lib/dist/`) are generated from the source files below.
-
-```
-src/                           ← Rust WASM engine (source of truth)
-  Cargo.toml                      Crate manifest
-  rust/
-    lib.rs                        wasm-bindgen API (VectorDB class)
-    hnsw.rs                       HNSW algorithm implementation
-    distance.rs                   Cosine / Euclidean / Dot Product metrics
-
-lib/                           ← npm package (TypeScript SDK)
-  src/
-    index.ts                      Barrel export
-    agent-memory.ts               AgentMemory class (init/mount/search)
-    vrom-cache.ts                 OPFS cache + hub:// URI resolver
-    embed-worker.ts               Background ONNX worker (model diffing)
-    types.ts                      All TypeScript type definitions
-  package.json                    npm package config + build scripts
-  tsconfig.json                   TypeScript compiler config
-  tsdown.config.ts                Build config (ESM + CJS + .d.ts + worker)
-  LICENSE
-
-docs/                          ← Documentation
-  getting-started.md              Install, quick start, framework guides
-  api-reference.md                Full API reference
-  guides.md                       In-depth guides
-  architecture.md                 System internals
-
-tools/                         ← Python tooling
-  vrom_builder.py                 Build vROM packages from documentation
-  vrom_cli.py                     CLI: list / pull / search / info
-
-index.html                     ← Space UI (Engine + vROM Hub + Builder)
-embed-worker.js                   Worker for the Space UI
-pkg/                              Pre-built WASM bindings for the Space UI
-```
-
-## Quick Start
+## 📦 Installation
 
 ```bash
 npm install vrom.js
+
 ```
+
+## 🗂️ Knowledge Cartridges & Registries
+
+By default, `vROM.js` resolves and fetches knowledge cartridges from the official central dataset registry:
+
+👉 **Default Registry:** [philipp-zettl/vrom-registry on Hugging Face](https://huggingface.co/datasets/philipp-zettl/vrom-registry)
+
+When you call `.mount('cartridge-name')`, the library looks for pre-built vector cartridges hosted within this registry.
+
+## 🛠️ Usage
+
+### Node.js (Native)
+
+For server-side or local script usage, import the default Node native variant:
 
 ```typescript
 import { AgentMemory } from 'vrom.js';
 
-const memory = new AgentMemory();
-await memory.init();
+const instance = new AgentMemory();
+await instance.init();
 
-// Mount a vROM — auto-caches to OPFS, auto-loads embedding model
-await memory.mount('hf-transformers-docs');
+// Mounts 'hf-inference-docs' from the default Hugging Face registry
+await instance.mount('hf-inference-docs');
 
-// Search with context expansion
-const results = await memory.search("how to use pipelines", {
-    topK: 3,
-    expandContext: true,
-});
-
-// Format for LLM injection
-const context = memory.formatContext(results, { maxTokens: 2000 });
-
-// Hot-swap to a different domain — skips model reload if compatible
-await memory.mount('hf-ml-training');
 ```
 
-→ See **[Getting Started](./docs/getting-started.md)** for the full tutorial, and **[API Reference](./docs/api-reference.md)** for all methods and options.
+### Web (Browser)
 
-## Prerequisites
+When using `vROM.js` in a web environment, you must ensure the embedding Web Worker is available in your public directory so the browser can serve it.
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| [Rust](https://rustup.rs/) | stable | Compile HNSW engine to WASM |
-| [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) | ≥0.13 | Rust → WASM + JS bindings |
-| [Node.js](https://nodejs.org/) | ≥22 | Build TypeScript SDK |
-| [Python](https://python.org/) | ≥3.10 | vROM builder + CLI (optional) |
+#### 1. Make the Worker Available
+
+**Option A: Automated Setup (Recommended)**
+Automate the copy step by adding `prestart` and `prebuild` scripts to your `package.json` (example using `react-scripts`):
+
+```json
+"scripts": {
+    "prestart": "cp node_modules/vrom.js/dist/embed-worker.js public/ || true",
+    "prebuild": "cp node_modules/vrom.js/dist/embed-worker.js public/ || true",
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+}
+
+```
+
+*(Note: If using Vite or another bundler, adjust `public/` to match your static asset directory).*
+
+**Option B: Manual Copy**
 
 ```bash
-# Install Rust + wasm-pack (if not already)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-cargo install wasm-pack
-```
-
-## Building from Source
-
-The build has two stages: **Rust → WASM**, then **TypeScript → npm package**.
-
-### Quick Build
-
-```bash
-cd lib
-npm install
-npm run build        # runs build:wasm then build:js
-```
-
-This produces:
-```
-lib/wasm-pkg/        ← wasm-pack output (JS bindings + .wasm binary)
-lib/dist/            ← Final npm package contents
-  index.js             ESM  (14 KB)
-  index.cjs            CJS  (15 KB)
-  index.d.ts           TypeScript declarations
-  index.d.cts          TypeScript declarations (CJS)
-  embed-worker.js      Background worker (separate file)
-  embed-worker.d.ts    Worker type declarations
-  vecdb_wasm_bg.wasm   WASM binary (172 KB)
-```
-
-### Stage 1: Compile Rust → WASM
-
-```bash
-cd lib
-npm run build:wasm
-```
-
-Runs `wasm-pack build ../src --target bundler --out-dir ../lib/wasm-pkg --release`.
-
-### Stage 2: Bundle TypeScript → npm package
-
-```bash
-cd lib
-npm run build:js
-```
-
-Runs `tsdown` which bundles ESM + CJS + type declarations + worker + WASM copy.
-
-### Validation
-
-```bash
-cd lib
-npm run build:check   # TypeScript type-check (no emit)
-npm run lint          # publint — validates exports map, file extensions
-npm run lint:types    # are-the-types-wrong — checks type resolution
-npm pack --dry-run    # Preview what npm publish would include
-```
-
-### Build Scripts Reference
-
-| Script | Command | What it does |
-|--------|---------|--------------|
-| `build:wasm` | `wasm-pack build ...` | Rust → WASM + JS bindings |
-| `build:js` | `tsdown` | TypeScript → ESM/CJS/dts + worker + WASM copy |
-| `build` | `build:wasm && build:js` | Full pipeline |
-| `build:check` | `tsc --noEmit` | Type-check only |
-| `lint` | `publint` | Validate package exports |
-| `lint:types` | `attw --pack .` | Check type resolution across CJS/ESM |
-| `clean` | `rm -rf dist wasm-pkg` | Remove all build artifacts |
-| `prepack` | `npm run build` | Auto-runs before `npm pack` / `npm publish` |
-
-## CI/CD
-
-```yaml
-name: Build & Publish
-
-on:
-  push:
-    tags: ['v*']
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: jetli/wasm-pack-action@v0.4.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
-
-      - name: Install dependencies
-        run: cd lib && npm ci
-
-      - name: Build (Rust → WASM → TypeScript)
-        run: cd lib && npm run build
-
-      - name: Validate
-        run: cd lib && npm run lint
-
-      - name: Publish to npm
-        run: cd lib && npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-```
-
-## API Overview
-
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `init()` | `Promise<void>` | Initialize WASM + spawn worker |
-| `mount(id, opts?)` | `Promise<MountStatus>` | Mount a vROM (OPFS cache → CDN fallback → model diff) |
-| `unmount()` | `void` | Free HNSW graph from RAM |
-| `search(query, opts?)` | `Promise<SearchResult[]>` | Embed + HNSW search + context expansion |
-| `formatContext(results, opts?)` | `string` | Format as LLM context string |
-| `getMountStatus()` | `MountStatus` | Current state |
-| `listVroms()` | `Promise<VromRegistryEntry[]>` | List available vROMs |
-| `isCached(id)` | `Promise<boolean>` | Check OPFS cache |
-| `evict(id)` | `Promise<void>` | Remove from OPFS cache |
-| `destroy()` | `void` | Free all resources + terminate worker |
-
-→ See **[API Reference](./docs/api-reference.md)** for full parameter documentation, types, and examples.
-
-## Architecture
+cp node_modules/vrom.js/dist/embed-worker.js public/
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  AgentMemory SDK                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  mount() → resolve hub:// → OPFS cache → VectorDB.load()    │   │
-│  │  search() → embed(worker) → HNSW search → expand context    │   │
-│  │  formatContext() → LLM-ready string                          │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                                                                     │
-│  Main Thread                     Web Worker Thread                  │
-│  ┌──────────────┐               ┌──────────────────┐               │
-│  │ VectorDB     │  postMessage  │ transformers.js   │               │
-│  │ (Rust/WASM)  │◄─────────────►│ ONNX embedding    │               │
-│  │ HNSW <1ms    │  Float32Array │ model diffing     │               │
-│  └──────────────┘  (zero-copy)  └──────────────────┘               │
-│         │                                                           │
-│  ┌──────┴────────────────────────────────────────────────────┐     │
-│  │  💾 OPFS — vROM cache (offline-first) + index persistence  │     │
-│  └───────────────────────────────────────────────────────────┘     │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────┐     │
-│  │  📡 vROM Registry CDN — HF Hub dataset resolve/ endpoints  │     │
-│  └───────────────────────────────────────────────────────────┘     │
-└─────────────────────────────────────────────────────────────────────┘
+
+#### 2. Initialize the Web Variant
+
+```typescript
+import { AgentMemory } from 'vrom.js/web';
+
+const instance = new AgentMemory({ workerPath: '/embed-worker.js' });
+await instance.init();
+
+// Mount a knowledge cartridge from the registry
+await instance.mount('hf-inference-docs');
+
 ```
 
-→ See **[Architecture](./docs/architecture.md)** for the full deep-dive.
+### Configuration Options
+To configure the agent we have the following options available
+```typescript
+export interface AgentMemoryOptions {
+    /** Path to the embed worker JS file. Default: auto-resolved via import.meta.url */
+    workerPath?: string;
+    /** Path to the WASM JS bindings module. Default: auto-resolved via import.meta.url */
+    wasmPkgPath?: string;
+    /** Custom vROM registry URL. Default: HF Hub CDN */
+    registryUrl?: string;
+    /** Log level. Default: 'warn' */
+    logLevel?: 'silent' | 'error' | 'warn' | 'info' | 'debug';
 
-## Official vROMs
+    /* Dedicated field for SaaS authentication.
+     * Automatically maps to the 'x-api-key' header.
+     */
+    apiKey?: string;
 
-Pre-computed HNSW indexes served from the [vROM Registry](https://huggingface.co/datasets/philipp-zettl/vrom-registry):
+    /* Custom headers for all registry and vROM asset requests
+     * Useful for custom proxy auth, User-Agent, etc.
+     */
+    headers?: Record<string, string> | Headers;
+}
+```
 
-| ID | Vectors | Size | Content |
-|----|---------|------|---------|
-| `hf-transformers-docs` | 1,356 | 12.6 MB | HF Transformers + Hub docs |
-| `hf-ml-training` | 629 | 5.8 MB | TRL + PEFT + Datasets docs |
+When mounting a ROM we can provide the following options
+```typescript
+export interface MountOptions {
+    /** Progress callback for CDN download. */
+    onProgress?: (progress: DownloadProgress) => void;
+    /** Force re-download even if cached in OPFS. Default: false */
+    forceDownload?: boolean;
+}
+```
 
-→ See **[Guides: Understanding vROMs](./docs/guides.md#understanding-vroms)** and **[Guides: Building Custom vROMs](./docs/guides.md#building-custom-vroms)** for more.
+## 📖 API Reference
 
-## Performance
+Once your `AgentMemory` instance is initialized, you have access to a full suite of vector operations.
 
-| Metric | Value |
-|--------|-------|
-| HNSW Search | < 1 ms |
-| Embedding (worker) | ~50 ms/sentence |
-| vROM mount (cached) | < 500 ms |
-| Hot-swap (same model) | < 500 ms |
-| WASM Binary | 172 KB |
-| npm tarball | 178 KB |
+### Insert Data
 
-→ See **[Guides: Performance Tuning](./docs/guides.md#performance-tuning)** for efSearch tradeoffs and optimization tips.
+Add text and rich metadata to the memory instance:
 
-## License
+```typescript
+await instance.insert("My text string", { id: "VEC_ID", key: "value", meta: "data" });
 
-MIT
+```
+
+### Delete Data
+
+Remove a specific document by its Vector ID:
+
+```typescript
+await instance.deleteDoc("VEC_ID");
+
+```
+
+### Generate Embeddings
+
+Directly embed text queries using the underlying model:
+
+```typescript
+const embeddings = await instance.embed(["my query"]);
+
+```
+
+### Search
+
+Perform approximate nearest neighbor searches against the memory:
+
+```typescript
+const results = await instance.search("my query", { topK: 5 });
+
+```
+
+**Search Options:**
+You can tune the search behavior and enable context expansion using the `SearchOptions` interface:
+
+```typescript
+export interface SearchOptions {
+    /** Number of results. Default: 5 */
+    topK?: number;
+    /** Follow prev/next chunk pointers for context expansion. Default: false */
+    expandContext?: boolean;
+    /** Number of chunks to expand in each direction. Default: 1 */
+    contextWindow?: number;
+    /** Override HNSW efSearch parameter for quality/speed tradeoff. */
+    efSearch?: number;
+}
+
+```
+
+### Save State
+
+Export the current agent memory content to be stored or shared:
+
+```typescript
+const indexString = await instance.save();
+
+```
+
+## 📁 Repository Structure
+
+* **`/src`**: The Rust backend containing the core HNSW index and distance metrics.
+* **`/lib`**: The TypeScript library providing the API for web/node clients.
+* **`/tools`**: Python scripts (`vrom_cli.py`, `vrom_builder.py`) for building and managing vector data offline.
+
+## 📄 License
+
+This project is licensed under the terms found in the `LICENSE` file.
+
