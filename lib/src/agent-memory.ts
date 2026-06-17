@@ -439,6 +439,36 @@ export class AgentMemoryCore {
         return ctx.trim();
     }
 
+    /**
+     * Dynamically insert a new document into the active vROM graph.
+     * Generates the embedding and adds it to the WASM HNSW index in real-time.
+     */
+    async insert(text: string, metadata: Record<string, any> = {}): Promise<void> {
+        if (!this.#db) throw new Error('No vROM mounted — call mount() first');
+        if (!this.#modelReady) throw new Error('Embedding model not loaded');
+
+        // 1. Generate the embedding in the background worker
+        const output = await this.embed([text]);
+        const vec = new Float32Array(output.data.slice(0, this.#embeddingDim!));
+
+        // 2. Stringify the metadata so it can cross the WASM boundary
+        const metaString = JSON.stringify({ text, ...metadata });
+        
+        // 3. Insert into the Rust WASM database
+        this.#db.insert(vec, metaString);
+
+        this.#log('info', `Inserted vector. Total vectors: ${this.#db.len()}`);
+    }
+
+    /**
+     * Export the current state of the live HNSW graph.
+     * Returns a JSON string containing the nodes and connections.
+     */
+    save(): string {
+        if (!this.#db) throw new Error('No vROM mounted');
+        // Calls the Rust WASM serialization method
+        return this.#db.to_json(); 
+    }
     // ─── Queries ───────────────────────────────────────────────────────
 
     /**
