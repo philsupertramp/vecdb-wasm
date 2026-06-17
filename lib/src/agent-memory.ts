@@ -331,10 +331,12 @@ export class AgentMemoryCore {
         if (!this.#db) throw new Error('No vROM mounted — call mount() first');
         if (!this.#modelReady) throw new Error('Embedding model not loaded');
 
+        const output = await this.embed([query]);
+        const vec = new Float32Array(output.data.slice(0, this.#embeddingDim!));
+
         const topK = options.topK ?? 5;
         const expandContext = options.expandContext ?? false;
         const contextWindow = options.contextWindow ?? 1;
-
         // Over-fetch significantly to account for ghost nodes and tombstones
         const fetchLimit = topK * 4 + this.#tombstones.size;
 
