@@ -524,7 +524,7 @@ export class AgentMemoryCore {
     save(): string {
         if (!this.#db) throw new Error('No vROM mounted');
         // Calls the Rust WASM serialization method
-        return this.#db.to_json(); 
+        return this.#db.save(); 
     }
     // ─── Queries ───────────────────────────────────────────────────────
 
