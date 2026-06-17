@@ -1,6 +1,6 @@
 {
   "name": "vrom.js",
-  "version": "4.3.3",
+  "version": "4.4.0",
   "description": "Zero-boilerplate RAG for browser AI agents. WASM HNSW vector search + background ONNX embedding + OPFS-cached vROM cartridges.",
   "license": "MIT",
   "type": "module",
@@ -53,7 +53,7 @@
     "build:check": "tsc --noEmit",
     "lint": "publint",
     "lint:types": "attw --pack . --ignore-rules no-resolution cjs-resolves-to-esm",
-    "prepack": "npm run build",
+    "prepack": "cp ../README.md && npm run build",
     "clean": "rm -rf dist wasm-pkg"
   },
   "devDependencies": {
