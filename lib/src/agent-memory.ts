@@ -363,6 +363,22 @@ export class AgentMemoryCore {
     }
 
     /**
+     * Manually load an embedding model without mounting a vROM.
+     * Required when building a local index from scratch.
+     */
+    async loadModel(modelId: string, dtype: string = 'q8'): Promise<void> {
+        if (!this.#initialized) throw new Error('Call init() first');
+        
+        // Skip if exactly the same model is already loaded
+        if (this.#modelReady && this.#currentModelId === modelId && this.#currentDtype === dtype) {
+            return;
+        }
+
+        this.#log('info', `Manual model load: ${modelId} (${dtype})`);
+        await this.#workerRPC('__load__', { type: 'load', modelId, dtype });
+    }
+
+    /**
      * Embed a text document.
      *
      * The document is embedded in the background worker (~50ms), then
