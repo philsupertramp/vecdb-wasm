@@ -56,7 +56,21 @@ export class AgentMemoryCore {
 
     /** Optional progress callback for model downloads. Set via {@link onProgress}. */
     _onProgress?: (p: { file: string; loaded: number; total: number }) => void;
+    #tombstones = new Set<string>();
 
+    deleteDoc(docId: string) {
+        if (!this.#db) throw new Error('No vROM mounted');
+        this.#tombstones.add(docId);
+        this.#log('info', `Tombstoned doc: ${docId}`);
+    }
+
+    getTombstones(): string[] {
+        return Array.from(this.#tombstones);
+    }
+
+    loadTombstones(ids: string[]) {
+        this.#tombstones = new Set(ids);
+    }
     /**
      * Create an AgentMemory instance.
      *
@@ -251,8 +265,13 @@ export class AgentMemoryCore {
         this.#db = this.#VectorDB!.load(indexJson);
         this.#activeVromId = vromId;
         this.#activeManifest = (await this.#cache.getCachedManifest(vromId)) ?? {};
-
         this.#log('info', `Loaded: ${this.#db.len()} vectors, ${this.#db.dim()}d`);
+
+        this.#tombstones.clear();
+        if (this.#activeManifest.tombstones) {
+            this.loadTombstones(this.#activeManifest.tombstones);
+        }
+        this.#log('info', `Loaded ${this.#tombstones.len()} tombstones!`);
 
         // Model diffing
         const requiredModel = this.#activeManifest.embedding_spec?.model || entry.model;
@@ -316,17 +335,53 @@ export class AgentMemoryCore {
         const expandContext = options.expandContext ?? false;
         const contextWindow = options.contextWindow ?? 1;
 
-        const output = await this.embed([query]);
-        const vec = new Float32Array(output.data.slice(0, this.#embeddingDim!));
+        // Over-fetch significantly to account for ghost nodes and tombstones
+        const fetchLimit = topK * 4 + this.#tombstones.size;
 
         const rawJson = options.efSearch
-            ? this.#db.search_with_ef(vec, topK, options.efSearch)
-            : this.#db.search(vec, topK);
+            ? this.#db.search_with_ef(vec, fetchLimit, options.efSearch)
+            : this.#db.search(vec, fetchLimit);
 
-        const results: SearchResult[] = JSON.parse(rawJson).map((r: any) => {
+        const allResults = JSON.parse(rawJson);
+        const validResults: SearchResult[] = [];
+        const seenDocs = new Map<string, number>();
+
+        for (const r of allResults) {
             const meta = r.metadata ? JSON.parse(r.metadata) : {};
-            return { text: meta.text ?? '', metadata: meta, distance: r.distance, id: r.id };
-        });
+            const docId = meta.id;
+
+            // 1. Detections: Filter out completely deleted documents
+            if (docId && this.#tombstones.has(docId)) continue;
+
+            // 2. Updates: Deduplicate ghost vectors (keep only the latest version)
+            if (docId) {
+                const docTime = meta.updatedAt || meta.createdAt || 0;
+                const seenTime = seenDocs.get(docId);
+
+                if (seenTime !== undefined) {
+                    if (seenTime >= docTime) {
+                        // We already processed a newer version of this doc, skip this ghost
+                        continue;
+                    } else {
+                        // This current vector is NEWER. Remove the obsolete older version.
+                        const existingIdx = validResults.findIndex(vr => vr.metadata?.id === docId);
+                        if (existingIdx !== -1) validResults.splice(existingIdx, 1);
+                    }
+                }
+                seenDocs.set(docId, docTime);
+            }
+
+            validResults.push({
+                text: meta.text ?? '',
+                metadata: meta,
+                distance: r.distance,
+                id: r.id
+            });
+
+            if (validResults.length === topK) break;
+        }
+
+        const results = validResults;
 
         if (expandContext) {
             for (const result of results) {
